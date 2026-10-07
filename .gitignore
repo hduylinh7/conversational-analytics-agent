@@ -69,6 +69,7 @@ pnpm-debug.log*
 *.key
 
 # Data & Database volumes / artifacts
+data/raw/*.csv
 data/raw/*
 !data/raw/README.md
 !data/raw/.gitkeep

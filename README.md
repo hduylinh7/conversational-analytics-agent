@@ -1,23 +1,29 @@
 # Conversational Analytics Agent
 
-A production-oriented conversational AI analytics system that will eventually allow users to query business data using natural language while enforcing SQL security and execution policies.
+A production-oriented conversational AI analytics system designed to enable analysts to query business data using natural language, with robust schema retrieval, SQL generation, AST guardrails, and visualization.
 
 ---
 
 ## Current Status
 
-**Initial Repository Foundation (Phase 0)**
+**Database Foundation (Phase 1)**
 
-This repository provides the core modular monolith foundation, containerized infrastructure, database connectivity, and health verification pipelines.
+The PostgreSQL database architecture is fully implemented, migrated, and covered with automated tests.
 
-The following business and agent capabilities are intentionally **NOT** implemented yet:
-- ❌ Text-to-SQL generation
-- ❌ LangGraph agent orchestration
-- ❌ Semantic layer & metric definitions
-- ❌ SQL AST validation & security guardrails
-- ❌ Dataset ingestion & schema creation
-- ❌ Production analytics dashboard UI
-- ❌ Benchmark evaluation suite
+* **PostgreSQL Schemas (3)**: `business`, `app`, `semantic`
+* **Total Tables (13)**:
+  * `business` (5): `customers`, `orders`, `order_items`, `products`, `payments`
+  * `app` (5): `users`, `conversations`, `messages`, `query_executions`, `saved_queries`
+  * `semantic` (3): `metric_definitions`, `dimension_definitions`, `data_sources`
+* **Migrations**: Alembic async migration suite supporting upgrade, downgrade, and replay.
+* **Constraints & Indexes**: Composite PKs, foreign keys, unique constraints, check constraints, and performance indexes.
+
+> ⚠️ **Important Notice on Data Ingestion**:
+>
+> The Olist Brazilian E-Commerce dataset has **NOT** been downloaded or ingested yet.
+> * No CSV files are present under `data/raw/`.
+> * The business tables currently contain **no production records**.
+> * In the next phase, the user will manually download the Olist dataset and place only the required CSV files in `data/raw/`.
 
 ---
 
@@ -31,9 +37,62 @@ Frontend (Next.js / App Router)
    ▼
 FastAPI Backend (Async Python 3.12)
    │
-   ├── PostgreSQL (Data storage & SQL execution target)
+   ├── PostgreSQL (Schemas: business, app, semantic)
    │
    └── Redis (Connection cache & session store)
+```
+
+For detailed schema diagrams and column descriptions:
+* **Entity-Relationship Diagram**: [docs/erd.mmd](docs/erd.mmd)
+* **Database Documentation**: [docs/database.md](docs/database.md)
+
+---
+
+## Database Setup & Workflows
+
+### 1. Start PostgreSQL
+
+Start PostgreSQL (and Redis) using Docker Compose:
+
+```bash
+docker compose up -d postgres redis
+```
+
+The database container will start with:
+* Database: `analytics`
+* User: `analytics`
+* Password: `analytics`
+* Host Port: `5433` (or `5432` if available; configured in `.env`)
+
+### 2. Run Alembic Migrations
+
+Apply database migrations to create the schemas and all 13 tables:
+
+```bash
+# From repository root:
+alembic upgrade head
+
+# Or from backend directory:
+cd backend
+alembic upgrade head
+```
+
+To roll back migrations:
+```bash
+alembic downgrade base
+```
+
+### 3. Run Database & Application Tests
+
+Run the full automated test suite (including schema, constraint, relationship, and health tests):
+
+```bash
+# From repository root:
+pytest backend/tests -v
+
+# Or from backend directory:
+cd backend
+pytest -v
 ```
 
 ---
@@ -43,119 +102,77 @@ FastAPI Backend (Async Python 3.12)
 ```text
 conversational-analytics-agent/
 ├── backend/                  # FastAPI asynchronous backend application
+│   ├── alembic/              # Alembic migration scripts and environment
+│   │   ├── versions/         # Migration versions (0001_initial_schema.py)
+│   │   ├── env.py            # Async migration runner across schemas
+│   │   └── script.py.mako    # Migration template
 │   ├── app/
 │   │   ├── agents/           # Future: LangGraph orchestration workflows
-│   │   ├── api/              # API routing and HTTP endpoints
-│   │   │   └── routes/       # Endpoint route handlers (/health, /health/ready)
+│   │   ├── api/              # API routing and HTTP endpoints (/health)
 │   │   ├── core/             # Centralized settings (Pydantic) and logging
 │   │   ├── db/               # PostgreSQL (SQLAlchemy 2.x async) & Redis clients
-│   │   ├── models/           # Future: SQLAlchemy ORM models
+│   │   ├── models/           # SQLAlchemy 2.x declarative models
+│   │   │   ├── base.py       # DeclarativeBase base class
+│   │   │   ├── business.py   # business.* schema models (5 tables)
+│   │   │   ├── application.py# app.* schema models (5 tables)
+│   │   │   └── semantic.py   # semantic.* schema models (3 tables)
 │   │   ├── repositories/     # Future: Data access layer
 │   │   ├── schemas/          # Pydantic request and response schemas
 │   │   ├── security/         # Future: SQL AST validation and guardrails
 │   │   ├── services/         # Future: Business and orchestration services
 │   │   └── main.py           # Application entrypoint & lifespan lifecycle
-│   ├── tests/                # Pytest test suite with async mock fixtures
+│   ├── tests/                # Automated pytest suite (database & health)
+│   ├── alembic.ini           # Backend Alembic configuration
 │   ├── Dockerfile            # Production-ready non-root Dockerfile
 │   ├── pyproject.toml        # Ruff, mypy, and pytest configuration
 │   └── requirements.txt      # Python dependencies
+├── docs/
+│   ├── database.md           # Full database schema and table documentation
+│   └── erd.mmd               # Mermaid ER diagram
 ├── frontend/                 # Minimal Next.js 15 client placeholder
-│   ├── app/                  # Next.js App Router (layout, page, styles)
-│   ├── Dockerfile            # Containerized frontend runner
-│   ├── package.json          # Node dependencies & scripts
-│   └── tsconfig.json         # TypeScript configuration
-├── data/                     # Data directory (raw & processed data gitignored)
-├── scripts/                  # Utility, migration, and automation scripts
+├── data/
+│   ├── raw/                  # Target for future Olist CSV files (.gitkeep)
+│   └── processed/            # Target for future processed data (.gitkeep)
+├── scripts/                  # Utility and operations scripts
 ├── eval/                     # Evaluation benchmarks and test cases
-├── tests/                    # Top-level integration & contract tests
+├── alembic.ini               # Root Alembic configuration
 ├── docker-compose.yml        # Multi-service infrastructure orchestration
 ├── .env.example              # Baseline environment configuration template
-├── .gitignore                # Git ignore rules for Python, Node, data, and secrets
+├── .gitignore                # Git ignore rules
 └── LICENSE                   # MIT License
 ```
 
 ---
 
-## Local Development
+## Next Steps (Planned Phases)
 
-### 1. Prerequisites
-- Docker & Docker Compose v2+
-- Python 3.11+ / 3.12+ (for local backend development)
-- Node.js 20+ (for local frontend development)
+1. **Manual Olist Dataset Placement**:
+   Place the 5 required CSV files into `data/raw/`:
+   * `olist_customers_dataset.csv`
+   * `olist_orders_dataset.csv`
+   * `olist_order_items_dataset.csv`
+   * `olist_products_dataset.csv`
+   * `olist_order_payments_dataset.csv`
 
-### 2. Environment Configuration
-Copy the template to create your `.env` file:
-```bash
-cp .env.example .env
-```
+2. **Ingestion Pipeline**:
+   Implement data validation, foreign key ordering, and ingestion into the `business` schema.
 
-### 3. Running with Docker Compose (Recommended)
-To build and start all 4 services (`postgres`, `redis`, `backend`, `frontend`):
-```bash
-docker compose up --build
-```
-
-To run in detached mode:
-```bash
-docker compose up --build -d
-```
-
-### 4. Running Backend Locally (Outside Docker)
-If running against local Docker services:
-```bash
-# Start only postgres and redis in background
-docker compose up -d postgres redis
-
-# Set up Python virtual environment
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start backend server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 5. Running Frontend Locally
-```bash
-cd frontend
-npm install
-npm run dev
-```
+3. **Semantic Layer & Agent**:
+   Populate semantic definitions, configure retrieval, and implement Text-to-SQL generation with AST validation.
 
 ---
 
-## Verification URLs
+## Code Quality & Verification
 
-| Service | URL | Description |
-|---|---|---|
-| Frontend | [http://localhost:3000](http://localhost:3000) | Analytics client UI placeholder & health monitor |
-| Backend Liveness | [http://localhost:8000/health](http://localhost:8000/health) | API service liveness probe |
-| Backend Readiness | [http://localhost:8000/health/ready](http://localhost:8000/health/ready) | PostgreSQL & Redis connectivity probe |
-| Swagger OpenAPI | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive API documentation |
-| ReDoc | [http://localhost:8000/redoc](http://localhost:8000/redoc) | Alternative OpenAPI documentation |
-
----
-
-## Quality Checks & Testing
-
-### Running Tests
 ```bash
 cd backend
-pytest
-```
 
-### Linting & Formatting
-```bash
-cd backend
+# Run tests
+pytest -v
+
+# Code formatting & linting
 ruff check .
-ruff format --check .
-```
 
-### Type Checking
-```bash
-cd backend
-mypy app
+# Static type checking
+mypy app tests
 ```

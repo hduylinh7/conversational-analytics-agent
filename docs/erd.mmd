@@ -1,0 +1,156 @@
+erDiagram
+    %% ==========================================
+    %% BUSINESS SCHEMA (Olist E-Commerce Structure)
+    %% ==========================================
+    customers ||--o{ orders : "places"
+    orders ||--o{ order_items : "contains"
+    products ||--o{ order_items : "referenced_in"
+    orders ||--o{ payments : "settled_by"
+
+    customers {
+        VARCHAR_32 customer_id PK
+        VARCHAR_32 customer_unique_id
+        VARCHAR_5 customer_zip_code_prefix
+        VARCHAR_100 customer_city
+        CHAR_2 customer_state
+    }
+
+    orders {
+        VARCHAR_32 order_id PK
+        VARCHAR_32 customer_id FK
+        VARCHAR_30 order_status
+        TIMESTAMP order_purchase_timestamp
+        TIMESTAMP order_approved_at
+        TIMESTAMP order_delivered_carrier_date
+        TIMESTAMP order_delivered_customer_date
+        TIMESTAMP order_estimated_delivery_date
+    }
+
+    order_items {
+        VARCHAR_32 order_id PK_FK
+        INTEGER order_item_id PK
+        VARCHAR_32 product_id FK
+        VARCHAR_32 seller_id
+        TIMESTAMP shipping_limit_date
+        NUMERIC_12_2 price
+        NUMERIC_12_2 freight_value
+    }
+
+    products {
+        VARCHAR_32 product_id PK
+        VARCHAR_100 product_category_name
+        INTEGER product_name_lenght
+        INTEGER product_description_lenght
+        INTEGER product_photos_qty
+        NUMERIC product_weight_g
+        NUMERIC product_length_cm
+        NUMERIC product_height_cm
+        NUMERIC product_width_cm
+    }
+
+    payments {
+        BIGSERIAL payment_id PK
+        VARCHAR_32 order_id FK
+        INTEGER payment_sequential
+        VARCHAR_30 payment_type
+        INTEGER payment_installments
+        NUMERIC_12_2 payment_value
+    }
+
+    %% ==========================================
+    %% APPLICATION SCHEMA (Conversational Platform)
+    %% ==========================================
+    users ||--o{ conversations : "owns"
+    conversations ||--o{ messages : "contains"
+    conversations ||--o{ query_executions : "tracks"
+    messages ||--o{ query_executions : "generates"
+    users ||--o{ saved_queries : "saves"
+
+    users {
+        UUID user_id PK
+        VARCHAR_255 email UK
+        VARCHAR_100 display_name
+        VARCHAR_30 role
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    conversations {
+        UUID conversation_id PK
+        UUID user_id FK
+        VARCHAR_255 title
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    messages {
+        UUID message_id PK
+        UUID conversation_id FK
+        VARCHAR_20 role
+        TEXT content
+        TIMESTAMPTZ created_at
+    }
+
+    query_executions {
+        UUID execution_id PK
+        UUID conversation_id FK
+        UUID message_id FK
+        TEXT natural_language_query
+        TEXT generated_sql
+        VARCHAR_30 status
+        TEXT error_message
+        TIMESTAMPTZ started_at
+        TIMESTAMPTZ finished_at
+        INTEGER duration_ms
+        INTEGER row_count
+        BIGINT result_size_bytes
+        BOOLEAN cache_hit
+    }
+
+    saved_queries {
+        UUID saved_query_id PK
+        UUID user_id FK
+        VARCHAR_255 name
+        TEXT description
+        TEXT natural_language_query
+        TEXT sql_query
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    %% ==========================================
+    %% SEMANTIC SCHEMA (Agent Semantic Catalog)
+    %% ==========================================
+    metric_definitions {
+        UUID metric_id PK
+        VARCHAR_100 name UK
+        VARCHAR_255 display_name
+        TEXT description
+        TEXT sql_expression
+        JSONB default_filters
+        VARCHAR_30 data_type
+        BOOLEAN is_active
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
+    dimension_definitions {
+        UUID dimension_id PK
+        VARCHAR_100 name UK
+        VARCHAR_255 display_name
+        TEXT description
+        VARCHAR_100 table_name
+        VARCHAR_100 column_name
+        VARCHAR_30 data_type
+        BOOLEAN is_active
+    }
+
+    data_sources {
+        UUID data_source_id PK
+        VARCHAR_100 name UK
+        TEXT description
+        VARCHAR_30 database_type
+        VARCHAR_100 schema_name
+        BOOLEAN is_active
+        TIMESTAMPTZ created_at
+    }
