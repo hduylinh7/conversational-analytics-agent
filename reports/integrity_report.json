@@ -1,0 +1,237 @@
+{
+  "generated_at": "2026-10-08T22:47:48.661851",
+  "schema": "business",
+  "summary": {
+    "total_checks": 25,
+    "passed_checks": 25,
+    "failed_checks": 0,
+    "overall_status": "PASS"
+  },
+  "primary_key_checks": [
+    {
+      "table": "business.customers",
+      "primary_key": "customer_id",
+      "is_composite": false,
+      "total_rows": 99441,
+      "null_count": 0,
+      "duplicate_count": 0,
+      "empty_string_count": 0,
+      "status": "PASS"
+    },
+    {
+      "table": "business.orders",
+      "primary_key": "order_id",
+      "is_composite": false,
+      "total_rows": 99441,
+      "null_count": 0,
+      "duplicate_count": 0,
+      "empty_string_count": 0,
+      "status": "PASS"
+    },
+    {
+      "table": "business.products",
+      "primary_key": "product_id",
+      "is_composite": false,
+      "total_rows": 32951,
+      "null_count": 0,
+      "duplicate_count": 0,
+      "empty_string_count": 0,
+      "status": "PASS"
+    },
+    {
+      "table": "business.order_items",
+      "primary_key": [
+        "order_id",
+        "order_item_id"
+      ],
+      "is_composite": true,
+      "total_rows": 112650,
+      "null_count": 0,
+      "duplicate_count": 0,
+      "empty_string_count": 0,
+      "status": "PASS"
+    },
+    {
+      "table": "business.payments",
+      "primary_key": "payment_id",
+      "is_composite": false,
+      "total_rows": 103886,
+      "null_count": 0,
+      "duplicate_count": 0,
+      "empty_string_count": 0,
+      "status": "PASS"
+    }
+  ],
+  "foreign_key_checks": [
+    {
+      "relation_name": "orders_to_customers",
+      "child_table": "business.orders",
+      "child_column": "customer_id",
+      "parent_table": "business.customers",
+      "parent_column": "customer_id",
+      "is_nullable": false,
+      "total_child_rows": 99441,
+      "valid_references": 99441,
+      "null_references": 0,
+      "orphan_rows": 0,
+      "orphan_percentage": 0.0,
+      "status": "PASS"
+    },
+    {
+      "relation_name": "order_items_to_orders",
+      "child_table": "business.order_items",
+      "child_column": "order_id",
+      "parent_table": "business.orders",
+      "parent_column": "order_id",
+      "is_nullable": false,
+      "total_child_rows": 112650,
+      "valid_references": 112650,
+      "null_references": 0,
+      "orphan_rows": 0,
+      "orphan_percentage": 0.0,
+      "status": "PASS"
+    },
+    {
+      "relation_name": "order_items_to_products",
+      "child_table": "business.order_items",
+      "child_column": "product_id",
+      "parent_table": "business.products",
+      "parent_column": "product_id",
+      "is_nullable": true,
+      "total_child_rows": 112650,
+      "valid_references": 112650,
+      "null_references": 0,
+      "orphan_rows": 0,
+      "orphan_percentage": 0.0,
+      "status": "PASS"
+    },
+    {
+      "relation_name": "payments_to_orders",
+      "child_table": "business.payments",
+      "child_column": "order_id",
+      "parent_table": "business.orders",
+      "parent_column": "order_id",
+      "is_nullable": false,
+      "total_child_rows": 103886,
+      "valid_references": 103886,
+      "null_references": 0,
+      "orphan_rows": 0,
+      "orphan_percentage": 0.0,
+      "status": "PASS"
+    }
+  ],
+  "business_sanity_checks": [
+    {
+      "rule_id": "order_items_price_non_negative",
+      "table": "business.order_items",
+      "description": "Item price must be non-negative (price >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "order_items_freight_value_non_negative",
+      "table": "business.order_items",
+      "description": "Freight value must be non-negative (freight_value >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "order_items_item_id_positive",
+      "table": "business.order_items",
+      "description": "Order item ID must be strictly positive (order_item_id > 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "payments_value_non_negative",
+      "table": "business.payments",
+      "description": "Payment value must be non-negative (payment_value >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "payments_installments_non_negative",
+      "table": "business.payments",
+      "description": "Payment installments must be non-negative (payment_installments >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "payments_sequential_positive",
+      "table": "business.payments",
+      "description": "Payment sequential must be strictly positive (payment_sequential > 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "payments_order_seq_unique",
+      "table": "business.payments",
+      "description": "Payment sequence per order must be unique (order_id, payment_sequential)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_name_length_non_negative",
+      "table": "business.products",
+      "description": "Product name length must be non-negative when present",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_description_length_non_negative",
+      "table": "business.products",
+      "description": "Product description length must be non-negative when present",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_photos_qty_non_negative",
+      "table": "business.products",
+      "description": "Product photos quantity must be non-negative when present",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_weight_g_non_negative",
+      "table": "business.products",
+      "description": "Product weight must be non-negative when present (product_weight_g >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_length_cm_non_negative",
+      "table": "business.products",
+      "description": "Product length must be non-negative when present (product_length_cm >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_height_cm_non_negative",
+      "table": "business.products",
+      "description": "Product height must be non-negative when present (product_height_cm >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "products_width_cm_non_negative",
+      "table": "business.products",
+      "description": "Product width must be non-negative when present (product_width_cm >= 0)",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "orders_delivery_after_purchase",
+      "table": "business.orders",
+      "description": "Delivered customer timestamp must be >= purchase timestamp",
+      "violation_count": 0,
+      "status": "PASS"
+    },
+    {
+      "rule_id": "orders_valid_order_status",
+      "table": "business.orders",
+      "description": "Order status must belong to standard allowed lifecycle values",
+      "violation_count": 0,
+      "status": "PASS"
+    }
+  ]
+}

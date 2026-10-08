@@ -1,0 +1,461 @@
+{
+  "generated_at": "2026-10-08T22:47:48.095138",
+  "schema": "business",
+  "summary": {
+    "total_tables": 5,
+    "total_rows": 448369
+  },
+  "tables": {
+    "business.customers": {
+      "table": "business.customers",
+      "row_count": 99441,
+      "columns": {
+        "customer_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 99441
+        },
+        "customer_unique_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 96096
+        },
+        "customer_zip_code_prefix": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 14994
+        },
+        "customer_city": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 4119,
+          "top_values": [
+            {
+              "value": "sao paulo",
+              "count": 15540,
+              "percentage": 15.63
+            },
+            {
+              "value": "rio de janeiro",
+              "count": 6882,
+              "percentage": 6.92
+            },
+            {
+              "value": "belo horizonte",
+              "count": 2773,
+              "percentage": 2.79
+            },
+            {
+              "value": "brasilia",
+              "count": 2131,
+              "percentage": 2.14
+            },
+            {
+              "value": "curitiba",
+              "count": 1521,
+              "percentage": 1.53
+            }
+          ]
+        },
+        "customer_state": {
+          "data_type": "character",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 27,
+          "top_values": [
+            {
+              "value": "SP",
+              "count": 41746,
+              "percentage": 41.98
+            },
+            {
+              "value": "RJ",
+              "count": 12852,
+              "percentage": 12.92
+            },
+            {
+              "value": "MG",
+              "count": 11635,
+              "percentage": 11.7
+            },
+            {
+              "value": "RS",
+              "count": 5466,
+              "percentage": 5.5
+            },
+            {
+              "value": "PR",
+              "count": 5045,
+              "percentage": 5.07
+            }
+          ]
+        }
+      }
+    },
+    "business.orders": {
+      "table": "business.orders",
+      "row_count": 99441,
+      "columns": {
+        "order_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 99441
+        },
+        "customer_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 99441
+        },
+        "order_status": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 8,
+          "top_values": [
+            {
+              "value": "delivered",
+              "count": 96478,
+              "percentage": 97.02
+            },
+            {
+              "value": "shipped",
+              "count": 1107,
+              "percentage": 1.11
+            },
+            {
+              "value": "canceled",
+              "count": 625,
+              "percentage": 0.63
+            },
+            {
+              "value": "unavailable",
+              "count": 609,
+              "percentage": 0.61
+            },
+            {
+              "value": "invoiced",
+              "count": 314,
+              "percentage": 0.32
+            }
+          ]
+        },
+        "order_purchase_timestamp": {
+          "data_type": "timestamp without time zone",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 98875,
+          "min_timestamp": "2016-09-04T21:15:19",
+          "max_timestamp": "2018-10-17T17:30:18"
+        },
+        "order_approved_at": {
+          "data_type": "timestamp without time zone",
+          "null_count": 160,
+          "null_percentage": 0.16,
+          "distinct_count": 90733,
+          "min_timestamp": "2016-09-15T12:16:38",
+          "max_timestamp": "2018-09-03T17:40:06"
+        },
+        "order_delivered_carrier_date": {
+          "data_type": "timestamp without time zone",
+          "null_count": 1783,
+          "null_percentage": 1.79,
+          "distinct_count": 81018,
+          "min_timestamp": "2016-10-08T10:34:01",
+          "max_timestamp": "2018-09-11T19:48:28"
+        },
+        "order_delivered_customer_date": {
+          "data_type": "timestamp without time zone",
+          "null_count": 2965,
+          "null_percentage": 2.98,
+          "distinct_count": 95664,
+          "min_timestamp": "2016-10-11T13:46:32",
+          "max_timestamp": "2018-10-17T13:22:46"
+        },
+        "order_estimated_delivery_date": {
+          "data_type": "timestamp without time zone",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 459,
+          "min_timestamp": "2016-09-30T00:00:00",
+          "max_timestamp": "2018-11-12T00:00:00"
+        }
+      }
+    },
+    "business.order_items": {
+      "table": "business.order_items",
+      "row_count": 112650,
+      "columns": {
+        "order_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 98666
+        },
+        "order_item_id": {
+          "data_type": "integer",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 21,
+          "min": 1,
+          "max": 21,
+          "avg": 1.2
+        },
+        "product_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 32951
+        },
+        "seller_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 3095
+        },
+        "shipping_limit_date": {
+          "data_type": "timestamp without time zone",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 93318,
+          "min_timestamp": "2016-09-19T00:15:34",
+          "max_timestamp": "2020-04-09T22:35:08"
+        },
+        "price": {
+          "data_type": "numeric",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 5968,
+          "min": 0.85,
+          "max": 6735.0,
+          "avg": 120.65
+        },
+        "freight_value": {
+          "data_type": "numeric",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 6999,
+          "min": 0.0,
+          "max": 409.68,
+          "avg": 19.99
+        }
+      }
+    },
+    "business.products": {
+      "table": "business.products",
+      "row_count": 32951,
+      "columns": {
+        "product_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 32951
+        },
+        "product_category_name": {
+          "data_type": "character varying",
+          "null_count": 610,
+          "null_percentage": 1.85,
+          "distinct_count": 73,
+          "top_values": [
+            {
+              "value": "cama_mesa_banho",
+              "count": 3029,
+              "percentage": 9.19
+            },
+            {
+              "value": "esporte_lazer",
+              "count": 2867,
+              "percentage": 8.7
+            },
+            {
+              "value": "moveis_decoracao",
+              "count": 2657,
+              "percentage": 8.06
+            },
+            {
+              "value": "beleza_saude",
+              "count": 2444,
+              "percentage": 7.42
+            },
+            {
+              "value": "utilidades_domesticas",
+              "count": 2335,
+              "percentage": 7.09
+            },
+            {
+              "value": "automotivo",
+              "count": 1900,
+              "percentage": 5.77
+            },
+            {
+              "value": "informatica_acessorios",
+              "count": 1639,
+              "percentage": 4.97
+            },
+            {
+              "value": "brinquedos",
+              "count": 1411,
+              "percentage": 4.28
+            },
+            {
+              "value": "relogios_presentes",
+              "count": 1329,
+              "percentage": 4.03
+            },
+            {
+              "value": "telefonia",
+              "count": 1134,
+              "percentage": 3.44
+            }
+          ]
+        },
+        "product_name_lenght": {
+          "data_type": "integer",
+          "null_count": 610,
+          "null_percentage": 1.85,
+          "distinct_count": 66,
+          "min": 5,
+          "max": 76,
+          "avg": 48.48
+        },
+        "product_description_lenght": {
+          "data_type": "integer",
+          "null_count": 610,
+          "null_percentage": 1.85,
+          "distinct_count": 2960,
+          "min": 4,
+          "max": 3992,
+          "avg": 771.5
+        },
+        "product_photos_qty": {
+          "data_type": "integer",
+          "null_count": 610,
+          "null_percentage": 1.85,
+          "distinct_count": 19,
+          "min": 1,
+          "max": 20,
+          "avg": 2.19
+        },
+        "product_weight_g": {
+          "data_type": "numeric",
+          "null_count": 2,
+          "null_percentage": 0.01,
+          "distinct_count": 2204,
+          "min": 0.0,
+          "max": 40425.0,
+          "avg": 2276.47
+        },
+        "product_length_cm": {
+          "data_type": "numeric",
+          "null_count": 2,
+          "null_percentage": 0.01,
+          "distinct_count": 99,
+          "min": 7.0,
+          "max": 105.0,
+          "avg": 30.82
+        },
+        "product_height_cm": {
+          "data_type": "numeric",
+          "null_count": 2,
+          "null_percentage": 0.01,
+          "distinct_count": 102,
+          "min": 2.0,
+          "max": 105.0,
+          "avg": 16.94
+        },
+        "product_width_cm": {
+          "data_type": "numeric",
+          "null_count": 2,
+          "null_percentage": 0.01,
+          "distinct_count": 95,
+          "min": 6.0,
+          "max": 118.0,
+          "avg": 23.2
+        }
+      }
+    },
+    "business.payments": {
+      "table": "business.payments",
+      "row_count": 103886,
+      "columns": {
+        "payment_id": {
+          "data_type": "bigint",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 103886
+        },
+        "order_id": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 99440
+        },
+        "payment_sequential": {
+          "data_type": "integer",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 29,
+          "min": 1,
+          "max": 29,
+          "avg": 1.09
+        },
+        "payment_type": {
+          "data_type": "character varying",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 5,
+          "top_values": [
+            {
+              "value": "credit_card",
+              "count": 76795,
+              "percentage": 73.92
+            },
+            {
+              "value": "boleto",
+              "count": 19784,
+              "percentage": 19.04
+            },
+            {
+              "value": "voucher",
+              "count": 5775,
+              "percentage": 5.56
+            },
+            {
+              "value": "debit_card",
+              "count": 1529,
+              "percentage": 1.47
+            },
+            {
+              "value": "not_defined",
+              "count": 3,
+              "percentage": 0.0
+            }
+          ]
+        },
+        "payment_installments": {
+          "data_type": "integer",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 24,
+          "min": 0,
+          "max": 24,
+          "avg": 2.85
+        },
+        "payment_value": {
+          "data_type": "numeric",
+          "null_count": 0,
+          "null_percentage": 0.0,
+          "distinct_count": 29077,
+          "min": 0.0,
+          "max": 13664.08,
+          "avg": 154.1
+        }
+      }
+    }
+  }
+}
