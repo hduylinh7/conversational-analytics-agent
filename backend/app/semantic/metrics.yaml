@@ -1,0 +1,284 @@
+version: "1.0"
+metrics:
+  - name: "total_revenue"
+    description: "Total merchandise revenue generated from sold items, calculated as the sum of line item prices (price). IMPORTANT: Excludes shipping/freight charges. Reflects pure catalog merchandise sales."
+    synonyms:
+      vi:
+        - "tổng doanh thu"
+        - "doanh thu"
+        - "doanh số"
+        - "tiền hàng"
+        - "tổng tiền hàng"
+        - "doanh thu hàng hóa"
+      en:
+        - "total revenue"
+        - "revenue"
+        - "merchandise revenue"
+        - "product revenue"
+        - "item sales"
+        - "sales revenue"
+    expression: "SUM(business.order_items.price)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "SUM"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Excludes shipping and freight charges. If question asks for total customer spend or total order value including shipping, use 'total_gross_revenue' or 'total_payment_value'."
+      - "FAN-OUT RISK: Do NOT join business.order_items directly with business.payments. Doing so multiplies item price sums by the number of payments per order."
+
+  - name: "total_gross_revenue"
+    description: "Total gross order value including both merchandise item prices and allocated freight fees (price + freight_value)."
+    synonyms:
+      vi:
+        - "tổng giá trị đơn hàng"
+        - "tổng doanh thu gộp"
+        - "tổng tiền gồm phí vận chuyển"
+        - "tổng tiền hàng và cước"
+      en:
+        - "total gross revenue"
+        - "gross revenue"
+        - "total order value"
+        - "revenue with freight"
+        - "gross merchandise value"
+    expression: "SUM(business.order_items.price + business.order_items.freight_value)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "SUM"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Aggregates merchandise plus shipping at the line-item level. FAN-OUT RISK: Do NOT join with business.payments in the same query."
+
+  - name: "total_freight"
+    description: "Total logistics and shipping freight fees collected across all order line items."
+    synonyms:
+      vi:
+        - "tổng phí vận chuyển"
+        - "tổng cước vận chuyển"
+        - "tiền ship"
+        - "tổng tiền ship"
+        - "phí vận chuyển"
+        - "cước ship"
+      en:
+        - "total freight"
+        - "total shipping"
+        - "shipping cost"
+        - "freight value"
+        - "freight total"
+        - "delivery fees"
+    expression: "SUM(business.order_items.freight_value)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "SUM"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Freight is allocated per item line. For multi-item orders, each item carries an individual freight amount. FAN-OUT RISK: Do NOT join with business.payments."
+
+  - name: "order_count"
+    description: "Total count of unique purchase orders placed in the system."
+    synonyms:
+      vi:
+        - "số lượng đơn hàng"
+        - "số đơn hàng"
+        - "tổng số đơn"
+        - "tổng đơn"
+        - "lượng đơn hàng"
+      en:
+        - "order count"
+        - "number of orders"
+        - "total orders"
+        - "orders count"
+        - "total order volume"
+    expression: "COUNT(DISTINCT business.orders.order_id)"
+    source_tables:
+      - "business.orders"
+    aggregation: "COUNT DISTINCT"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Always uses COUNT(DISTINCT business.orders.order_id) to guard against duplicate counts when orders is joined with 1:N tables such as order_items or payments."
+
+  - name: "total_payment_value"
+    description: "Total monetary amount collected and settled via payment transaction records in the payments table."
+    synonyms:
+      vi:
+        - "tổng tiền thanh toán"
+        - "tổng giá trị thanh toán"
+        - "tiền thực thu"
+        - "tổng tiền quyết toán"
+        - "tổng dòng tiền thanh toán"
+      en:
+        - "total payment value"
+        - "payment total"
+        - "total paid"
+        - "settled payment amount"
+        - "cash received"
+    expression: "SUM(business.payments.payment_value)"
+    source_tables:
+      - "business.payments"
+    aggregation: "SUM"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Represents settled payment transactions, which may differ slightly from order items sum due to voucher credits, payment discounts, or installment surcharges."
+      - "FAN-OUT RISK: Do NOT join business.payments with business.order_items. Aggregate each in independent CTEs or subqueries."
+
+  - name: "items_sold_count"
+    description: "Total count of line item units sold across orders."
+    synonyms:
+      vi:
+        - "số lượng sản phẩm đã bán"
+        - "số sản phẩm bán ra"
+        - "số lượng hàng bán"
+        - "tổng sản phẩm bán"
+      en:
+        - "items sold count"
+        - "items sold"
+        - "total items sold"
+        - "units sold"
+        - "quantity sold"
+    expression: "COUNT(business.order_items.order_item_id)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "COUNT"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Counts individual line item rows. In Olist, each item unit has an individual order_item_id sequential record."
+
+  - name: "customer_count"
+    description: "Total count of unique individual human customers, identified by customer_unique_id."
+    synonyms:
+      vi:
+        - "số lượng khách hàng"
+        - "số khách hàng"
+        - "tổng số khách hàng"
+        - "lượng khách"
+        - "số người mua"
+      en:
+        - "customer count"
+        - "number of customers"
+        - "unique customers"
+        - "distinct customers"
+        - "total customers"
+    expression: "COUNT(DISTINCT business.customers.customer_unique_id)"
+    source_tables:
+      - "business.customers"
+    aggregation: "COUNT DISTINCT"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Must aggregate over customer_unique_id, NOT customer_id. customer_id is ephemeral per order, whereas customer_unique_id tracks the same buyer across multiple purchases."
+
+  - name: "average_order_value"
+    description: "Average merchandise revenue per distinct order (merchandise price only, excluding freight)."
+    synonyms:
+      vi:
+        - "giá trị đơn hàng trung bình"
+        - "AOV"
+        - "doanh thu trung bình mỗi đơn"
+        - "tiền hàng trung bình mỗi đơn"
+      en:
+        - "average order value"
+        - "AOV"
+        - "avg order value"
+        - "average merchandise per order"
+    expression: "SUM(business.order_items.price) / NULLIF(COUNT(DISTINCT business.order_items.order_id), 0)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "RATIO"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Calculated at merchandise price level excluding freight. Uses NULLIF to avoid division by zero."
+
+  - name: "average_item_price"
+    description: "Average selling price per merchandise line item unit."
+    synonyms:
+      vi:
+        - "giá bán trung bình"
+        - "giá sản phẩm trung bình"
+        - "đơn giá trung bình"
+      en:
+        - "average item price"
+        - "avg item price"
+        - "average product price"
+        - "mean item price"
+    expression: "AVG(business.order_items.price)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "AVG"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Reflects the average unit price across order item lines."
+
+  - name: "average_freight_value"
+    description: "Average shipping fee allocated per line item."
+    synonyms:
+      vi:
+        - "phí vận chuyển trung bình"
+        - "tiền ship trung bình"
+        - "cước ship trung bình mỗi món"
+      en:
+        - "average freight value"
+        - "avg freight"
+        - "average shipping cost"
+        - "mean delivery cost"
+    expression: "AVG(business.order_items.freight_value)"
+    source_tables:
+      - "business.order_items"
+    aggregation: "AVG"
+    join_requirements: []
+    filters: []
+    warnings:
+      - "Calculated at the item line level. If average shipping per order is required, sum freight by order_id first."
+
+  - name: "delivered_order_count"
+    description: "Total count of unique orders that reached delivered status."
+    synonyms:
+      vi:
+        - "số đơn giao thành công"
+        - "số đơn đã giao"
+        - "lượng đơn hoàn tất"
+      en:
+        - "delivered order count"
+        - "completed orders"
+        - "delivered orders"
+        - "successful orders"
+    expression: "COUNT(DISTINCT business.orders.order_id)"
+    source_tables:
+      - "business.orders"
+    aggregation: "COUNT DISTINCT"
+    join_requirements: []
+    filters:
+      - condition: "business.orders.order_status = 'delivered'"
+        description: "Only count orders with order_status = 'delivered'"
+    warnings:
+      - "Excludes orders currently shipped, invoiced, processing, or canceled."
+
+  - name: "canceled_order_count"
+    description: "Total count of unique orders that were canceled."
+    synonyms:
+      vi:
+        - "số đơn bị hủy"
+        - "số đơn hủy"
+        - "tổng đơn hủy"
+        - "lượng đơn hủy"
+      en:
+        - "canceled order count"
+        - "cancelled orders"
+        - "canceled orders"
+        - "order cancellations"
+    expression: "COUNT(DISTINCT business.orders.order_id)"
+    source_tables:
+      - "business.orders"
+    aggregation: "COUNT DISTINCT"
+    join_requirements: []
+    filters:
+      - condition: "business.orders.order_status = 'canceled'"
+        description: "Only count orders with order_status = 'canceled'"
+    warnings:
+      - "Only counts orders marked as canceled."

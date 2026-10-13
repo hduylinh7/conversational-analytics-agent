@@ -42,9 +42,10 @@ FastAPI Backend (Async Python 3.12)
    └── Redis (Connection cache & session store)
 ```
 
-For detailed schema diagrams and column descriptions:
+For detailed schema diagrams, column descriptions, and semantic layer:
 * **Entity-Relationship Diagram**: [docs/erd.mmd](docs/erd.mmd)
 * **Database Documentation**: [docs/database.md](docs/database.md)
+* **Semantic Layer Documentation**: [docs/semantic-layer.md](docs/semantic-layer.md)
 
 ---
 
@@ -119,16 +120,18 @@ conversational-analytics-agent/
 │   │   ├── repositories/     # Future: Data access layer
 │   │   ├── schemas/          # Pydantic request and response schemas
 │   │   ├── security/         # Future: SQL AST validation and guardrails
+│   │   ├── semantic/         # Semantic Layer (YAML definitions, models, loader, validator)
 │   │   ├── services/         # Future: Business and orchestration services
 │   │   └── main.py           # Application entrypoint & lifespan lifecycle
-│   ├── tests/                # Automated pytest suite (database & health)
+│   ├── tests/                # Automated pytest suite (database, health, semantic layer)
 │   ├── alembic.ini           # Backend Alembic configuration
 │   ├── Dockerfile            # Production-ready non-root Dockerfile
 │   ├── pyproject.toml        # Ruff, mypy, and pytest configuration
 │   └── requirements.txt      # Python dependencies
 ├── docs/
 │   ├── database.md           # Full database schema and table documentation
-│   └── erd.mmd               # Mermaid ER diagram
+│   ├── erd.mmd               # Mermaid ER diagram
+│   └── semantic-layer.md     # Semantic Layer documentation and query mapping guide
 ├── frontend/                 # Minimal Next.js 15 client placeholder
 ├── data/
 │   ├── raw/                  # Target for future Olist CSV files (.gitkeep)

@@ -1,0 +1,241 @@
+version: "1.0"
+dimensions:
+  - name: "order_date"
+    description: "Calendar date and timestamp when the customer placed the order in the e-commerce store."
+    synonyms:
+      vi:
+        - "ngày đặt hàng"
+        - "ngày mua"
+        - "ngày tạo đơn"
+        - "thời gian đặt hàng"
+        - "ngày mua hàng"
+        - "năm đặt hàng"
+        - "tháng đặt hàng"
+      en:
+        - "order date"
+        - "purchase date"
+        - "order timestamp"
+        - "purchase timestamp"
+        - "order purchase date"
+        - "order year"
+        - "order month"
+    source_table: "business.orders"
+    source_column: "order_purchase_timestamp"
+    data_type: "TIMESTAMP"
+    filterable: true
+    groupable: true
+    transformations:
+      - name: "date"
+        expression: "DATE(business.orders.order_purchase_timestamp)"
+        description: "Truncate timestamp to calendar date (YYYY-MM-DD)"
+      - name: "month"
+        expression: "DATE_TRUNC('month', business.orders.order_purchase_timestamp)"
+        description: "Truncate timestamp to first day of month (YYYY-MM-01)"
+      - name: "year"
+        expression: "EXTRACT(YEAR FROM business.orders.order_purchase_timestamp)::INTEGER"
+        description: "Extract 4-digit calendar year (e.g., 2018)"
+      - name: "year_month"
+        expression: "TO_CHAR(business.orders.order_purchase_timestamp, 'YYYY-MM')"
+        description: "Format timestamp as year-month string (e.g., 2018-05)"
+
+  - name: "order_status"
+    description: "Lifecycle fulfillment status of the order transaction in the system."
+    synonyms:
+      vi:
+        - "trạng thái đơn hàng"
+        - "tình trạng đơn hàng"
+        - "trạng thái đơn"
+        - "tình trạng đơn"
+      en:
+        - "order status"
+        - "status"
+        - "fulfillment status"
+        - "delivery status"
+    source_table: "business.orders"
+    source_column: "order_status"
+    data_type: "VARCHAR(30)"
+    filterable: true
+    groupable: true
+    allowed_values:
+      - "delivered"
+      - "shipped"
+      - "canceled"
+      - "invoiced"
+      - "processing"
+      - "unavailable"
+      - "created"
+      - "approved"
+
+  - name: "product_category"
+    description: "Product catalog classification name in Portuguese as stored in the database."
+    synonyms:
+      vi:
+        - "danh mục sản phẩm"
+        - "ngành hàng"
+        - "loại sản phẩm"
+        - "danh mục"
+        - "nhóm sản phẩm"
+      en:
+        - "product category"
+        - "category"
+        - "product category name"
+        - "item category"
+        - "department"
+    source_table: "business.products"
+    source_column: "product_category_name"
+    data_type: "VARCHAR(100)"
+    filterable: true
+    groupable: true
+    notes: "Values are in Portuguese (e.g., 'beleza_saude', 'informatica_acessorios'). The English translation table was intentionally omitted from the database schema."
+
+  - name: "customer_state"
+    description: "Two-letter state code of the customer's delivery destination within Brazil."
+    synonyms:
+      vi:
+        - "bang khách hàng"
+        - "tỉnh bang khách hàng"
+        - "tiểu bang"
+        - "bang"
+        - "tỉnh thành khách hàng"
+        - "khu vực khách hàng"
+      en:
+        - "customer state"
+        - "state"
+        - "customer region"
+        - "delivery state"
+        - "buyer state"
+        - "province"
+    source_table: "business.customers"
+    source_column: "customer_state"
+    data_type: "CHAR(2)"
+    filterable: true
+    groupable: true
+
+  - name: "customer_city"
+    description: "City name of the customer's delivery address."
+    synonyms:
+      vi:
+        - "thành phố khách hàng"
+        - "thành phố"
+        - "đô thị"
+        - "nơi ở khách hàng"
+      en:
+        - "customer city"
+        - "city"
+        - "delivery city"
+        - "buyer city"
+    source_table: "business.customers"
+    source_column: "customer_city"
+    data_type: "VARCHAR(100)"
+    filterable: true
+    groupable: true
+
+  - name: "payment_type"
+    description: "Payment instrument or tender method used by the customer to settle the order."
+    synonyms:
+      vi:
+        - "phương thức thanh toán"
+        - "hình thức thanh toán"
+        - "loại thanh toán"
+        - "kênh thanh toán"
+      en:
+        - "payment type"
+        - "payment method"
+        - "payment instrument"
+        - "tender type"
+    source_table: "business.payments"
+    source_column: "payment_type"
+    data_type: "VARCHAR(30)"
+    filterable: true
+    groupable: true
+    allowed_values:
+      - "credit_card"
+      - "boleto"
+      - "voucher"
+      - "debit_card"
+      - "not_defined"
+
+  - name: "payment_installments"
+    description: "Number of installment payments selected for credit card settlements."
+    synonyms:
+      vi:
+        - "số kỳ trả góp"
+        - "trả góp"
+        - "kỳ thanh toán"
+        - "số đợt trả góp"
+      en:
+        - "payment installments"
+        - "installments"
+        - "installment count"
+        - "installment plan"
+    source_table: "business.payments"
+    source_column: "payment_installments"
+    data_type: "INTEGER"
+    filterable: true
+    groupable: true
+
+  - name: "seller_id"
+    description: "Unique seller identifier responsible for fulfilling order line items."
+    synonyms:
+      vi:
+        - "mã người bán"
+        - "người bán"
+        - "nhà bán hàng"
+        - "đối tác bán hàng"
+        - "shop"
+      en:
+        - "seller id"
+        - "seller"
+        - "merchant"
+        - "vendor id"
+        - "vendor"
+    source_table: "business.order_items"
+    source_column: "seller_id"
+    data_type: "VARCHAR(32)"
+    filterable: true
+    groupable: true
+
+  - name: "order_delivered_date"
+    description: "Actual timestamp when the carrier delivered the order to the customer."
+    synonyms:
+      vi:
+        - "ngày nhận hàng"
+        - "ngày giao hàng thành công"
+        - "thời gian nhận hàng"
+        - "ngày khách nhận"
+      en:
+        - "delivered date"
+        - "delivery date"
+        - "actual delivery date"
+        - "delivery timestamp"
+    source_table: "business.orders"
+    source_column: "order_delivered_customer_date"
+    data_type: "TIMESTAMP"
+    filterable: true
+    groupable: true
+    transformations:
+      - name: "date"
+        expression: "DATE(business.orders.order_delivered_customer_date)"
+        description: "Truncate timestamp to delivery date (YYYY-MM-DD)"
+
+  - name: "order_estimated_delivery_date"
+    description: "Estimated delivery SLA date promised to the customer when the order was placed."
+    synonyms:
+      vi:
+        - "ngày giao dự kiến"
+        - "hạn giao dự kiến"
+        - "thời gian giao dự kiến"
+      en:
+        - "estimated delivery date"
+        - "estimated date"
+        - "promised delivery date"
+        - "delivery SLA date"
+    source_table: "business.orders"
+    source_column: "order_estimated_delivery_date"
+    data_type: "TIMESTAMP"
+    filterable: true
+    groupable: true
+    transformations:
+      - name: "date"
+        expression: "DATE(business.orders.order_estimated_delivery_date)"
+        description: "Truncate timestamp to estimated date (YYYY-MM-DD)"

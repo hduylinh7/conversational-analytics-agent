@@ -8,5 +8,23 @@ Future additions:
 """
 
 from app.schemas.health import DependencyStatus, HealthResponse, ReadinessResponse
+from app.schemas.semantic import (
+    DataSourcesCatalog,
+    DimensionMetadata,
+    DimensionsCatalog,
+    MetricMetadata,
+    MetricsCatalog,
+    SemanticCatalog,
+)
 
-__all__ = ["HealthResponse", "ReadinessResponse", "DependencyStatus"]
+__all__ = [
+    "HealthResponse",
+    "ReadinessResponse",
+    "DependencyStatus",
+    "DataSourcesCatalog",
+    "DimensionMetadata",
+    "DimensionsCatalog",
+    "MetricMetadata",
+    "MetricsCatalog",
+    "SemanticCatalog",
+]
