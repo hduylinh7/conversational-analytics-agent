@@ -1,0 +1,331 @@
+version: "1.0"
+database:
+  name: "analytics"
+  type: "postgresql"
+  default_schema: "business"
+  description: "PostgreSQL analytical database containing Brazilian Olist e-commerce domain data."
+
+tables:
+  - name: "business.customers"
+    alias: "c"
+    description: "Customer geographic and profile records. In Olist, each row represents an order-specific customer token (customer_id), while customer_unique_id identifies the real-world repeat buyer across orders."
+    primary_key:
+      - "customer_id"
+    foreign_keys: []
+    columns:
+      - name: "customer_id"
+        data_type: "VARCHAR(32)"
+        description: "Unique token assigned to a customer for a single specific order."
+        nullable: false
+        is_primary_key: true
+      - name: "customer_unique_id"
+        data_type: "VARCHAR(32)"
+        description: "Global identifier for a unique person across repeat purchases."
+        nullable: false
+        is_primary_key: false
+      - name: "customer_zip_code_prefix"
+        data_type: "VARCHAR(5)"
+        description: "First 5 digits of the customer postal code."
+        nullable: true
+        is_primary_key: false
+      - name: "customer_city"
+        data_type: "VARCHAR(100)"
+        description: "City name of customer delivery address."
+        nullable: true
+        is_primary_key: false
+      - name: "customer_state"
+        data_type: "CHAR(2)"
+        description: "Two-letter state abbreviation of customer delivery location (e.g., SP, RJ, MG)."
+        nullable: true
+        is_primary_key: false
+
+  - name: "business.orders"
+    alias: "o"
+    description: "Core sales order transactions with fulfillment status and lifecycle milestone timestamps."
+    primary_key:
+      - "order_id"
+    foreign_keys:
+      - columns:
+          - "customer_id"
+        referenced_table: "business.customers"
+        referenced_columns:
+          - "customer_id"
+        on_delete: "CASCADE"
+    columns:
+      - name: "order_id"
+        data_type: "VARCHAR(32)"
+        description: "Unique identifier for each transaction order."
+        nullable: false
+        is_primary_key: true
+      - name: "customer_id"
+        data_type: "VARCHAR(32)"
+        description: "Foreign key referencing business.customers(customer_id)."
+        nullable: false
+        is_primary_key: false
+      - name: "order_status"
+        data_type: "VARCHAR(30)"
+        description: "Fulfillment status of order (delivered, shipped, canceled, invoiced, processing, unavailable, created, approved)."
+        nullable: false
+        is_primary_key: false
+      - name: "order_purchase_timestamp"
+        data_type: "TIMESTAMP"
+        description: "Timestamp when the customer placed the order."
+        nullable: false
+        is_primary_key: false
+      - name: "order_approved_at"
+        data_type: "TIMESTAMP"
+        description: "Timestamp when payment was approved."
+        nullable: true
+        is_primary_key: false
+      - name: "order_delivered_carrier_date"
+        data_type: "TIMESTAMP"
+        description: "Timestamp when order was handed to logistics carrier."
+        nullable: true
+        is_primary_key: false
+      - name: "order_delivered_customer_date"
+        data_type: "TIMESTAMP"
+        description: "Timestamp when order was delivered to customer."
+        nullable: true
+        is_primary_key: false
+      - name: "order_estimated_delivery_date"
+        data_type: "TIMESTAMP"
+        description: "Estimated delivery SLA date promised to customer."
+        nullable: true
+        is_primary_key: false
+
+  - name: "business.order_items"
+    alias: "oi"
+    description: "Line items contained within orders, recording item price, freight allocation, and seller attribution."
+    primary_key:
+      - "order_id"
+      - "order_item_id"
+    foreign_keys:
+      - columns:
+          - "order_id"
+        referenced_table: "business.orders"
+        referenced_columns:
+          - "order_id"
+        on_delete: "CASCADE"
+      - columns:
+          - "product_id"
+        referenced_table: "business.products"
+        referenced_columns:
+          - "product_id"
+        on_delete: "SET NULL"
+    columns:
+      - name: "order_id"
+        data_type: "VARCHAR(32)"
+        description: "Foreign key referencing business.orders(order_id)."
+        nullable: false
+        is_primary_key: true
+      - name: "order_item_id"
+        data_type: "INTEGER"
+        description: "Sequential line item number within the order (1, 2, 3...)."
+        nullable: false
+        is_primary_key: true
+      - name: "product_id"
+        data_type: "VARCHAR(32)"
+        description: "Foreign key referencing business.products(product_id). Nullable if product deleted."
+        nullable: true
+        is_primary_key: false
+      - name: "seller_id"
+        data_type: "VARCHAR(32)"
+        description: "Seller identifier responsible for fulfilling this line item."
+        nullable: false
+        is_primary_key: false
+      - name: "shipping_limit_date"
+        data_type: "TIMESTAMP"
+        description: "Seller shipping deadline for handing over item to carrier."
+        nullable: true
+        is_primary_key: false
+      - name: "price"
+        data_type: "NUMERIC(12,2)"
+        description: "Monetary price of single merchandise item (excluding freight). Non-negative."
+        nullable: false
+        is_primary_key: false
+      - name: "freight_value"
+        data_type: "NUMERIC(12,2)"
+        description: "Freight / shipping cost allocated to this specific line item. Non-negative."
+        nullable: false
+        is_primary_key: false
+
+  - name: "business.products"
+    alias: "p"
+    description: "Product catalog items with category taxonomy and physical dimensions."
+    primary_key:
+      - "product_id"
+    foreign_keys: []
+    columns:
+      - name: "product_id"
+        data_type: "VARCHAR(32)"
+        description: "Unique product catalog identifier."
+        nullable: false
+        is_primary_key: true
+      - name: "product_category_name"
+        data_type: "VARCHAR(100)"
+        description: "Product category name in Portuguese (e.g., beleza_saude, informatica_acessorios)."
+        nullable: true
+        is_primary_key: false
+      - name: "product_name_lenght"
+        data_type: "INTEGER"
+        description: "Character length of product title (original Olist spelling preserved)."
+        nullable: true
+        is_primary_key: false
+      - name: "product_description_lenght"
+        data_type: "INTEGER"
+        description: "Character length of product description (original Olist spelling preserved)."
+        nullable: true
+        is_primary_key: false
+      - name: "product_photos_qty"
+        data_type: "INTEGER"
+        description: "Number of published product photos."
+        nullable: true
+        is_primary_key: false
+      - name: "product_weight_g"
+        data_type: "NUMERIC"
+        description: "Product weight in grams."
+        nullable: true
+        is_primary_key: false
+      - name: "product_length_cm"
+        data_type: "NUMERIC"
+        description: "Product packaging length in centimeters."
+        nullable: true
+        is_primary_key: false
+      - name: "product_height_cm"
+        data_type: "NUMERIC"
+        description: "Product packaging height in centimeters."
+        nullable: true
+        is_primary_key: false
+      - name: "product_width_cm"
+        data_type: "NUMERIC"
+        description: "Product packaging width in centimeters."
+        nullable: true
+        is_primary_key: false
+
+  - name: "business.payments"
+    alias: "pmt"
+    description: "Financial settlement records and installment terms per order."
+    primary_key:
+      - "payment_id"
+    foreign_keys:
+      - columns:
+          - "order_id"
+        referenced_table: "business.orders"
+        referenced_columns:
+          - "order_id"
+        on_delete: "CASCADE"
+    columns:
+      - name: "payment_id"
+        data_type: "BIGINT"
+        description: "Database surrogate primary key generated as Identity sequence."
+        nullable: false
+        is_primary_key: true
+      - name: "order_id"
+        data_type: "VARCHAR(32)"
+        description: "Foreign key referencing business.orders(order_id)."
+        nullable: false
+        is_primary_key: false
+      - name: "payment_sequential"
+        data_type: "INTEGER"
+        description: "Sequential installment index or split payment sequence (1, 2, ...)."
+        nullable: false
+        is_primary_key: false
+      - name: "payment_type"
+        data_type: "VARCHAR(30)"
+        description: "Payment method used (credit_card, boleto, voucher, debit_card, not_defined)."
+        nullable: false
+        is_primary_key: false
+      - name: "payment_installments"
+        data_type: "INTEGER"
+        description: "Number of installment installments chosen by customer."
+        nullable: false
+        is_primary_key: false
+      - name: "payment_value"
+        data_type: "NUMERIC(12,2)"
+        description: "Monetary amount settled by this payment record. Non-negative."
+        nullable: false
+        is_primary_key: false
+
+relationships:
+  - name: "orders_to_customers"
+    source_table: "business.orders"
+    target_table: "business.customers"
+    cardinality: "many_to_one"
+    join_type: "INNER"
+    join_condition: "business.orders.customer_id = business.customers.customer_id"
+    description: "Each order is placed by exactly one customer token. Safe join without fan-out from orders."
+    is_safe_for_aggregation: true
+
+  - name: "customers_to_orders"
+    source_table: "business.customers"
+    target_table: "business.orders"
+    cardinality: "one_to_many"
+    join_type: "INNER"
+    join_condition: "business.customers.customer_id = business.orders.customer_id"
+    description: "Customer token links to orders. Note: customer_id is 1:1 per order, but repeat buyers share customer_unique_id."
+    is_safe_for_aggregation: true
+
+  - name: "orders_to_order_items"
+    source_table: "business.orders"
+    target_table: "business.order_items"
+    cardinality: "one_to_many"
+    join_type: "INNER"
+    join_condition: "business.orders.order_id = business.order_items.order_id"
+    description: "An order contains 1 or more line items. Fans out order-level rows to item level."
+    is_safe_for_aggregation: true
+    warning: "Multiplying order-level metrics: Order counts require COUNT(DISTINCT orders.order_id)."
+
+  - name: "order_items_to_orders"
+    source_table: "business.order_items"
+    target_table: "business.orders"
+    cardinality: "many_to_one"
+    join_type: "INNER"
+    join_condition: "business.order_items.order_id = business.orders.order_id"
+    description: "Each line item belongs to exactly one order. Safe join without fan-out from order_items."
+    is_safe_for_aggregation: true
+
+  - name: "order_items_to_products"
+    source_table: "business.order_items"
+    target_table: "business.products"
+    cardinality: "many_to_one"
+    join_type: "LEFT"
+    join_condition: "business.order_items.product_id = business.products.product_id"
+    description: "Line item references catalog product details. LEFT JOIN used because product_id can be null if product is deleted."
+    is_safe_for_aggregation: true
+
+  - name: "products_to_order_items"
+    source_table: "business.products"
+    target_table: "business.order_items"
+    cardinality: "one_to_many"
+    join_type: "INNER"
+    join_condition: "business.products.product_id = business.order_items.product_id"
+    description: "A product may be sold across multiple order item lines."
+    is_safe_for_aggregation: true
+
+  - name: "orders_to_payments"
+    source_table: "business.orders"
+    target_table: "business.payments"
+    cardinality: "one_to_many"
+    join_type: "INNER"
+    join_condition: "business.orders.order_id = business.payments.order_id"
+    description: "An order may have multiple payment records (e.g. split cards, voucher + credit card)."
+    is_safe_for_aggregation: true
+    warning: "Multiplying order-level metrics: Order counts require COUNT(DISTINCT orders.order_id)."
+
+  - name: "payments_to_orders"
+    source_table: "business.payments"
+    target_table: "business.orders"
+    cardinality: "many_to_one"
+    join_type: "INNER"
+    join_condition: "business.payments.order_id = business.orders.order_id"
+    description: "Each payment record settles exactly one order. Safe join without fan-out from payments."
+    is_safe_for_aggregation: true
+
+join_restrictions:
+  - name: "chasm_trap_order_items_and_payments"
+    forbidden_concurrent_joins:
+      - "business.order_items"
+      - "business.payments"
+    severity: "CRITICAL"
+    reason: "Chasm Trap / Fan-out Multiplication: Both order_items and payments have 1:N cardinality from orders. Joining both tables in a single flat FROM ... JOIN query generates an M x N Cartesian row expansion per order. For an order with 3 items and 2 payments, 6 rows are produced, multiplying SUM(order_items.price) by 2x and SUM(payments.payment_value) by 3x. Adding DISTINCT does NOT fix sums because distinct amounts would drop genuine identical prices."
+    remediation: "Never join business.order_items and business.payments directly in the same SELECT ... JOIN clause when calculating aggregates. Always aggregate each table in an isolated subquery or CTE grouped by order_id before joining at the order level, or execute as separate analytical queries."
