@@ -288,3 +288,10 @@ mypy app tests
 4. **Order Status for Revenue Recognition**:
    * Revenue can be calculated across all orders, or restricted to completed (`delivered`) orders.
    * **Assumption**: `total_revenue` by default aggregates all placed item records. For realized sales, the agent should combine with `order_status = 'delivered'` or use `delivered_order_count`.
+
+---
+
+## 8. Semantic Retrieval Module
+
+For details on the retrieval component that selects metrics, dimensions, tables, and join rules for user queries, see the [Semantic Retrieval Architecture & Reference](file:///d:/conversational-analytics-agent/docs/semantic-retrieval.md).
+

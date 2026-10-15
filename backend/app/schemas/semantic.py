@@ -1,4 +1,4 @@
-"""Pydantic schemas for the Semantic Layer DTOs and API responses."""
+"""Pydantic schemas for the Semantic Layer DTOs, API responses, and Retrieval results."""
 
 from app.semantic.models import (
     ColumnMetadata,
@@ -13,8 +13,19 @@ from app.semantic.models import (
     Synonyms,
     TableMetadata,
 )
+from app.semantic.retrieval.schemas import (
+    JoinStep,
+    ResolvedJoinPath,
+    RetrievalConfig,
+    RetrievalResult,
+    RetrievalStatus,
+    SelectedDimension,
+    SelectedMetric,
+    SelectionExplanation,
+)
 
 __all__ = [
+    # Metadata catalog schemas
     "Synonyms",
     "ColumnMetadata",
     "TableMetadata",
@@ -26,4 +37,13 @@ __all__ = [
     "MetricMetadata",
     "MetricsCatalog",
     "SemanticCatalog",
+    # Retrieval schemas
+    "RetrievalStatus",
+    "RetrievalConfig",
+    "RetrievalResult",
+    "SelectedMetric",
+    "SelectedDimension",
+    "SelectionExplanation",
+    "JoinStep",
+    "ResolvedJoinPath",
 ]

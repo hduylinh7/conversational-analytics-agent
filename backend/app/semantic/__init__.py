@@ -1,4 +1,4 @@
-"""Semantic Layer package providing metadata schemas, YAML loaders, and validators."""
+"""Semantic Layer package providing metadata schemas, YAML loaders, validators, and retrieval."""
 
 from app.semantic.loader import (
     SemanticFileNotFoundError,
@@ -6,10 +6,12 @@ from app.semantic.loader import (
     SemanticSchemaValidationError,
     SemanticYamlSyntaxError,
     get_default_semantic_directory,
+    get_semantic_catalog,
     load_data_sources,
     load_dimensions,
     load_metrics,
     load_semantic_layer,
+    reload_semantic_layer,
 )
 from app.semantic.models import (
     ColumnMetadata,
@@ -26,6 +28,22 @@ from app.semantic.models import (
     Synonyms,
     TableMetadata,
     TransformationMetadata,
+)
+from app.semantic.retrieval import (
+    BaseEmbeddingProvider,
+    JoinStep,
+    MockEmbeddingProvider,
+    OpenAIEmbeddingProvider,
+    ResolvedJoinPath,
+    RetrievalConfig,
+    RetrievalResult,
+    RetrievalStatus,
+    SelectedDimension,
+    SelectedMetric,
+    SelectionExplanation,
+    SemanticRetriever,
+    get_semantic_retriever,
+    retrieve,
 )
 from app.semantic.validator import (
     SemanticValidator,
@@ -54,6 +72,8 @@ __all__ = [
     "load_data_sources",
     "load_dimensions",
     "load_metrics",
+    "get_semantic_catalog",
+    "reload_semantic_layer",
     "get_default_semantic_directory",
     # Exceptions
     "SemanticLayerError",
@@ -64,4 +84,19 @@ __all__ = [
     "SemanticValidator",
     "ValidationIssue",
     "ValidationResult",
+    # Retrieval
+    "SemanticRetriever",
+    "get_semantic_retriever",
+    "retrieve",
+    "RetrievalConfig",
+    "RetrievalResult",
+    "RetrievalStatus",
+    "SelectedMetric",
+    "SelectedDimension",
+    "SelectionExplanation",
+    "JoinStep",
+    "ResolvedJoinPath",
+    "BaseEmbeddingProvider",
+    "MockEmbeddingProvider",
+    "OpenAIEmbeddingProvider",
 ]

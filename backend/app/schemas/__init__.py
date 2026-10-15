@@ -12,8 +12,16 @@ from app.schemas.semantic import (
     DataSourcesCatalog,
     DimensionMetadata,
     DimensionsCatalog,
+    JoinStep,
     MetricMetadata,
     MetricsCatalog,
+    ResolvedJoinPath,
+    RetrievalConfig,
+    RetrievalResult,
+    RetrievalStatus,
+    SelectedDimension,
+    SelectedMetric,
+    SelectionExplanation,
     SemanticCatalog,
 )
 
@@ -27,4 +35,13 @@ __all__ = [
     "MetricMetadata",
     "MetricsCatalog",
     "SemanticCatalog",
+    "RetrievalStatus",
+    "RetrievalConfig",
+    "RetrievalResult",
+    "SelectedMetric",
+    "SelectedDimension",
+    "SelectionExplanation",
+    "JoinStep",
+    "ResolvedJoinPath",
 ]
+

@@ -131,7 +131,9 @@ conversational-analytics-agent/
 ├── docs/
 │   ├── database.md           # Full database schema and table documentation
 │   ├── erd.mmd               # Mermaid ER diagram
-│   └── semantic-layer.md     # Semantic Layer documentation and query mapping guide
+│   ├── semantic-layer.md     # Semantic Layer documentation and query mapping guide
+│   └── semantic-retrieval.md # Semantic Retrieval architecture, ranking, and join resolution
+
 ├── frontend/                 # Minimal Next.js 15 client placeholder
 ├── data/
 │   ├── raw/                  # Target for future Olist CSV files (.gitkeep)

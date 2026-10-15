@@ -133,3 +133,40 @@ def load_semantic_layer(directory_path: Path | str | None = None) -> SemanticCat
         dimensions=dimensions,
         metrics=metrics,
     )
+
+
+_cached_semantic_catalog: SemanticCatalog | None = None
+_cached_semantic_directory: Path | None = None
+
+
+def get_semantic_catalog(
+    directory_path: Path | str | None = None,
+    force_reload: bool = False,
+) -> SemanticCatalog:
+    """Return the cached SemanticCatalog, loading from disk on first call or when forced.
+
+    Args:
+        directory_path: Optional custom directory. Defaults to standard package directory.
+        force_reload: If True, reload from YAML files even if already cached.
+
+    Returns:
+        Populated and validated SemanticCatalog.
+    """
+    global _cached_semantic_catalog, _cached_semantic_directory
+    target_dir = Path(directory_path) if directory_path else get_default_semantic_directory()
+
+    if (
+        _cached_semantic_catalog is None
+        or force_reload
+        or _cached_semantic_directory != target_dir
+    ):
+        _cached_semantic_catalog = load_semantic_layer(target_dir)
+        _cached_semantic_directory = target_dir
+
+    return _cached_semantic_catalog
+
+
+def reload_semantic_layer(directory_path: Path | str | None = None) -> SemanticCatalog:
+    """Explicitly force-reload the SemanticCatalog from YAML files."""
+    return get_semantic_catalog(directory_path=directory_path, force_reload=True)
+

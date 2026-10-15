@@ -38,6 +38,44 @@ class Settings(BaseSettings):
     # Frontend URL (for CORS)
     FRONTEND_URL: str = Field(default="http://localhost:3000")
 
+    # Semantic Layer & Retrieval Configuration
+    SEMANTIC_LAYER_DIR: str | None = Field(
+        default=None,
+        description="Optional custom directory for semantic layer YAML files.",
+    )
+    RETRIEVAL_KEYWORD_WEIGHT: float = Field(
+        default=0.6,
+        description="Weight of keyword matching in hybrid retrieval (0.0 to 1.0).",
+    )
+    RETRIEVAL_EMBEDDING_WEIGHT: float = Field(
+        default=0.4,
+        description="Weight of embedding similarity in hybrid retrieval (0.0 to 1.0).",
+    )
+    RETRIEVAL_ENABLE_EMBEDDINGS: bool = Field(
+        default=False,
+        description="Whether embedding similarity search is enabled.",
+    )
+    RETRIEVAL_TOP_K_METRICS: int = Field(
+        default=3,
+        description="Default maximum candidate metrics to return.",
+    )
+    RETRIEVAL_TOP_K_DIMENSIONS: int = Field(
+        default=5,
+        description="Default maximum candidate dimensions to return.",
+    )
+    RETRIEVAL_MIN_CONFIDENCE_SCORE: float = Field(
+        default=0.25,
+        description="Minimum score threshold for candidate selection.",
+    )
+    OPENAI_API_KEY: str | None = Field(
+        default=None,
+        description="API key for optional external embedding provider.",
+    )
+    EMBEDDING_MODEL: str = Field(
+        default="text-embedding-3-small",
+        description="Embedding model name.",
+    )
+
     @property
     def database_url(self) -> str:
         """Construct the async SQLAlchemy PostgreSQL connection string."""
