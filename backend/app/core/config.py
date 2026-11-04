@@ -76,6 +76,20 @@ class Settings(BaseSettings):
         description="Embedding model name.",
     )
 
+    # SQL Security & Guardrail Configuration
+    SQL_MAX_LIMIT: int = Field(
+        default=1000,
+        description="Maximum row LIMIT allowed in generated SQL queries.",
+    )
+    SQL_DEFAULT_LIMIT: int = Field(
+        default=100,
+        description="Default row LIMIT injected into generated SQL queries when none is provided.",
+    )
+    SQL_ENFORCE_LIMIT: bool = Field(
+        default=True,
+        description="Whether to enforce row limits on all generated SQL queries.",
+    )
+
     @property
     def database_url(self) -> str:
         """Construct the async SQLAlchemy PostgreSQL connection string."""

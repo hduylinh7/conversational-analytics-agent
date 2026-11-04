@@ -46,6 +46,7 @@ For detailed schema diagrams, column descriptions, and semantic layer:
 * **Entity-Relationship Diagram**: [docs/erd.mmd](docs/erd.mmd)
 * **Database Documentation**: [docs/database.md](docs/database.md)
 * **Semantic Layer Documentation**: [docs/semantic-layer.md](docs/semantic-layer.md)
+* **SQL Guardrails & AST Validation**: [docs/sql-guardrails.md](docs/sql-guardrails.md)
 
 ---
 
@@ -132,7 +133,8 @@ conversational-analytics-agent/
 │   ├── database.md           # Full database schema and table documentation
 │   ├── erd.mmd               # Mermaid ER diagram
 │   ├── semantic-layer.md     # Semantic Layer documentation and query mapping guide
-│   └── semantic-retrieval.md # Semantic Retrieval architecture, ranking, and join resolution
+│   ├── semantic-retrieval.md # Semantic Retrieval architecture, ranking, and join resolution
+│   └── sql-guardrails.md     # SQL Guardrails, AST validation, read-only policies, and limit injection
 
 ├── frontend/                 # Minimal Next.js 15 client placeholder
 ├── data/
