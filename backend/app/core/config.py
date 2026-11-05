@@ -90,6 +90,40 @@ class Settings(BaseSettings):
         description="Whether to enforce row limits on all generated SQL queries.",
     )
 
+    # LLM & Text-to-SQL Generation Configuration
+    OPENROUTER_API_KEY: str | None = Field(
+        default=None,
+        description="API key for OpenRouter LLM gateway.",
+    )
+    GROQ_API_KEY: str | None = Field(
+        default=None,
+        description="API key for Groq LLM inference platform.",
+    )
+    GROQ_BASE_URL: str = Field(
+        default="https://api.groq.com/openai/v1",
+        description="Base URL for Groq OpenAI-compatible API.",
+    )
+    LLM_MODEL: str = Field(
+        default="google/gemini-2.5-flash",
+        description="Model identifier for Text-to-SQL generation.",
+    )
+    LLM_PROVIDER: str = Field(
+        default="openrouter",
+        description="LLM provider: 'openrouter', 'groq', 'openai', or 'mock'.",
+    )
+    LLM_BASE_URL: str = Field(
+        default="https://openrouter.ai/api/v1",
+        description="Base URL for OpenRouter / OpenAI API.",
+    )
+    LLM_TEMPERATURE: float = Field(
+        default=0.0,
+        description="Temperature for deterministic SQL generation.",
+    )
+    SQL_MAX_REPAIR_ATTEMPTS: int = Field(
+        default=3,
+        description="Maximum self-repair iteration attempts when validation fails.",
+    )
+
     @property
     def database_url(self) -> str:
         """Construct the async SQLAlchemy PostgreSQL connection string."""

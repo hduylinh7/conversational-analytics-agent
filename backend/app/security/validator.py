@@ -166,7 +166,7 @@ class SQLGuardrailValidator:
         ast = meaningful_stmts[0]
 
         # 2. SELECT-Only & Read-Only Root Type Verification
-        if not isinstance(ast, (exp.Select, exp.Union)):
+        if not isinstance(ast, exp.Select | exp.Union):
             violations.append(
                 SecurityViolation(
                     rule=ViolationRule.SELECT_ONLY,
