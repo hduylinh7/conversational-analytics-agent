@@ -1,185 +1,108 @@
-"""AnalyzeService: end-to-end analytics pipeline orchestration.
+"""AnalyzeService: LangGraph-based analytics pipeline orchestration.
 
-Pipeline: semantic retrieval -> Text-to-SQL generation with self-repair ->
-guardrail re-validation (inside repository) -> PostgreSQL execution ->
-execution-error self-repair loop (SQLSTATE feedback to the LLM).
+The workflow is compiled once from ``AnalyticsNodes`` and executed with a
+per-request state. Control flow (retrieval gate, guardrail repair loop,
+execution-error repair loop, and termination) lives in the graph edges; this
+service only wires dependencies, invokes the graph, and returns its response.
 """
 
-from app.agents.llm_client import LLMError
-from app.agents.schemas import SQLGenerationRequest
-from app.agents.sql_generator import SQLGenerator
+from typing import Protocol, cast
+
+from langgraph.errors import GraphRecursionError
+
+from app.agents.graph.builder import build_analytics_graph
+from app.agents.graph.nodes import AnalyticsNodes, RetrieverLike, ValidatorLike
+from app.agents.graph.state import AnalyticsState
+from app.agents.llm_client import BaseLLMClient, create_llm_client
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.repositories.analytics import AnalyticsRepository
-from app.repositories.schemas import ExecutionResult, ExecutionStatus
+from app.repositories.schemas import ExecutionResult
 from app.schemas.analyze import AnalyzeResponse
 from app.semantic.retrieval.retriever import SemanticRetriever
-from app.semantic.retrieval.schemas import RetrievalResult, RetrievalStatus
 
 logger = get_logger(__name__)
 
-STAGE_RETRIEVAL = "retrieval"
-STAGE_GENERATION = "generation"
-STAGE_EXECUTION = "execution"
+
+class ExecutorLike(Protocol):
+    """Structural type for the SQL execution repository used by the graph."""
+
+    async def execute(self, sql: str, **kwargs: object) -> ExecutionResult:
+        """Execute validated SQL and return the execution report."""
 
 
 class AnalyzeService:
-    """Coordinates retrieval, generation, and execution into a single response."""
+    """Coordinates the compiled LangGraph pipeline for natural language questions."""
 
     def __init__(
         self,
-        retriever: SemanticRetriever | None = None,
-        generator: SQLGenerator | None = None,
-        repository: AnalyticsRepository | None = None,
+        retriever: RetrieverLike | None = None,
+        llm_client: BaseLLMClient | None = None,
+        validator: ValidatorLike | None = None,
+        repository: ExecutorLike | None = None,
+        max_guardrail_repairs: int | None = None,
+        max_execution_repairs: int | None = None,
     ) -> None:
-        """Initialize the pipeline with injectable components for testing."""
+        """Build the graph with injectable components for testing."""
+        settings = get_settings()
         self.retriever = retriever or SemanticRetriever()
-        self.generator = generator or SQLGenerator()
+        self.llm_client = llm_client or create_llm_client()
+        self.validator = validator
         self.repository = repository or AnalyticsRepository()
+        self.recursion_limit = settings.GRAPH_RECURSION_LIMIT
 
-    def _retrieval_failure(self, retrieval: RetrievalResult) -> str | None:
-        """Non-actionable guard: retrieval must yield metadata and a safe join plan."""
-        if not retrieval.selected_metrics and not retrieval.selected_dimensions:
-            return (
-                "The question does not match any metrics or dimensions in the "
-                "semantic catalog (or confidence is too low)."
-            )
-
-        if retrieval.status in (
-            RetrievalStatus.INSUFFICIENT_METADATA,
-            RetrievalStatus.UNSAFE_JOIN,
-        ):
-            return f"Retrieval stopped with status {retrieval.status}: {retrieval.warnings}"
-
-        is_unsafe_join = not retrieval.is_safe_for_direct_execution or (
-            retrieval.resolved_join_path is not None
-            and not retrieval.resolved_join_path.is_safe_for_direct_execution
+        self.nodes = AnalyticsNodes(
+            retriever=self.retriever,
+            llm_client=self.llm_client,
+            executor=self.repository.execute,
+            validator=self.validator,
+            max_guardrail_repairs=max_guardrail_repairs,
+            max_execution_repairs=max_execution_repairs,
+            default_model=settings.LLM_MODEL,
         )
-        if is_unsafe_join:
-            return "Resolved join path is unsafe for direct execution: " + "; ".join(
-                retrieval.warnings
-            )
-
-        return None
-
-    def _execution_failure(self, execution: ExecutionResult) -> str | None:
-        """Map a failed execution to a user-facing reason, upgradeable by repair data."""
-        if execution.is_success:
-            return None
-
-        reason = execution.error_message or f"Execution failed with status {execution.status}."
-        if execution.status == ExecutionStatus.TIMEOUT:
-            logger.warning("Execution timeout (code=%s)", execution.error_code)
-        return reason
+        self.graph = build_analytics_graph(self.nodes)
 
     async def analyze(
         self, question: str, *, model: str | None = None, temperature: float = 0.0
     ) -> AnalyzeResponse:
-        """Run the full analytics pipeline for a natural language question."""
-        retrieval = self.retriever.retrieve(question)
-
-        retrieval_failure = self._retrieval_failure(retrieval)
-        if retrieval_failure is not None:
-            logger.info("Retrieval failure for question '%s': %s", question, retrieval_failure)
-            return AnalyzeResponse(
-                question=question,
-                success=False,
-                failed_stage=STAGE_RETRIEVAL,
-                failure_reason=retrieval_failure,
-                retrieval_status=retrieval.status,
-                confidence_score=retrieval.confidence_score,
-                warnings=retrieval.warnings,
-            )
+        """Run the analytics graph and return the pipeline response."""
+        initial_state: AnalyticsState = {
+            "question": question,
+            "model": model,
+            "temperature": temperature,
+            "warnings": [],
+        }
 
         try:
-            generation, execution = await self.generator.generate_and_execute_async(
-                SQLGenerationRequest(
-                    question=question,
-                    retrieval_result=retrieval,
-                    model=model,
-                    temperature=temperature,
+            final_state = cast(
+                AnalyticsState,
+                await self.graph.ainvoke(
+                    initial_state,
+                    config={"recursion_limit": self.recursion_limit},
                 ),
-                executor=self.repository.execute,
             )
-        except LLMError as exc:
-            logger.error("LLM provider error for question '%s': %s", question, exc)
-            return AnalyzeResponse(
-                question=question,
-                success=False,
-                failed_stage=STAGE_GENERATION,
-                failure_reason=(
-                    "SQL generation failed due to an LLM provider error: "
-                    f"{str(exc).splitlines()[0][:500]}"
-                ),
-                retrieval_status=retrieval.status,
-                confidence_score=retrieval.confidence_score,
-                warnings=retrieval.warnings,
-            )
-
-        if not generation.is_valid or generation.final_sql is None:
-            violation_messages = (
-                [
-                    f"{v.severity} {v.rule}: {v.message}"
-                    for v in generation.validation_result.violations
-                ]
-                if generation.validation_result is not None
-                else []
-            )
-            reason = (
-                generation.explanation
-                or "; ".join(violation_messages)
-                or "The generated SQL failed all guardrail validation attempts."
-            )
-            logger.warning(
-                "Generation failure for question '%s' after %d repair attempts",
+        except GraphRecursionError:
+            logger.error(
+                "LangGraph recursion limit (%d) exceeded for question '%s'",
+                self.recursion_limit,
                 question,
-                generation.repair_attempts,
             )
             return AnalyzeResponse(
                 question=question,
                 success=False,
-                failed_stage=STAGE_GENERATION,
-                failure_reason=reason,
-                retrieval_status=retrieval.status,
-                confidence_score=retrieval.confidence_score,
-                final_sql=generation.final_sql,
-                raw_sql=generation.raw_sql,
-                explanation=generation.explanation,
-                repair_attempts=generation.repair_attempts,
-                model_used=generation.model_used,
-                warnings=retrieval.warnings,
+                failed_stage="generation",
+                failure_reason=(
+                    "The analytics workflow exceeded its maximum number of steps "
+                    "before producing a result."
+                ),
+                retrieval_status="INSUFFICIENT_METADATA",
+                confidence_score=0.0,
             )
 
-        execution_failure = self._execution_failure(execution) if execution is not None else None
-        warnings = [*retrieval.warnings]
-        if generation.validation_result is not None:
-            warnings.extend(generation.validation_result.warnings)
-        for repair in generation.repair_history:
-            if repair.stage == "execution" and repair.error_code:
-                warnings.append(
-                    f"SQL self-repair after execution error {repair.error_code}: "
-                    f"{repair.error_message or 'no message'}"
-                )
-
-        success = execution is not None and execution.status == ExecutionStatus.SUCCESS
-        return AnalyzeResponse(
-            question=question,
-            success=success,
-            failed_stage=(
-                None
-                if success
-                else (STAGE_EXECUTION if execution is not None else STAGE_GENERATION)
-            ),
-            failure_reason=execution_failure,
-            retrieval_status=retrieval.status,
-            confidence_score=retrieval.confidence_score,
-            final_sql=generation.final_sql,
-            raw_sql=generation.raw_sql,
-            explanation=generation.explanation,
-            repair_attempts=generation.repair_attempts,
-            model_used=generation.model_used,
-            warnings=warnings,
-            execution=execution,
-        )
+        response = final_state.get("response")
+        if response is None:  # defensive: finalize always sets a response
+            response = self.nodes.build_response(final_state)
+        return response
 
 
 _global_analyze_service: AnalyzeService | None = None

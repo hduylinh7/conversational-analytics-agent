@@ -61,6 +61,22 @@ python scripts/validate_data.py --profile-only
 python scripts/validate_data.py --integrity-only
 ```
 
+### 5. LangGraph Visual Demo (`demo_langgraph.py`)
+
+Runs the compiled analytics graph offline (fake retriever/executor, real AST guardrails) and prints every node transition in the terminal, including both repair loops.
+
+```bash
+# Run all scenarios (happy path, guardrail repair, execution repair, budgets, skip, LLM error):
+python scripts/demo_langgraph.py
+
+# Run one scenario:
+python scripts/demo_langgraph.py --scenario execution-repair
+
+# List scenarios / print the graph as a Mermaid diagram:
+python scripts/demo_langgraph.py --list
+python scripts/demo_langgraph.py --mermaid
+```
+
 ## Planned Scripts
 
 - Database seeders (mock app sessions)

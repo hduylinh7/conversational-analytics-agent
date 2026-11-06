@@ -129,6 +129,13 @@ class Settings(BaseSettings):
         "(TIMEOUT, DATABASE_ERROR). Shares the chat history with the generation loop.",
     )
 
+    # LangGraph Orchestration Configuration
+    GRAPH_RECURSION_LIMIT: int = Field(
+        default=50,
+        ge=10,
+        description="Hard cap on LangGraph supersteps, preventing runaway orchestration loops.",
+    )
+
     # SQL Execution Configuration
     SQL_EXECUTION_TIMEOUT: float = Field(
         default=10.0,

@@ -18,6 +18,14 @@ The PostgreSQL database architecture is fully implemented, migrated, and covered
 * **Migrations**: Alembic async migration suite supporting upgrade, downgrade, and replay.
 * **Constraints & Indexes**: Composite PKs, foreign keys, unique constraints, check constraints, and performance indexes.
 
+**Agent Orchestration (LangGraph)**
+
+The end-to-end analytics workflow is now a compiled LangGraph state machine:
+semantic retrieval → Text-to-SQL generation → AST guardrail validation →
+PostgreSQL execution, with guardrail and SQLSTATE repair loops driven by
+conditional edges (budgets and termination included). The `POST /analyze`
+contract is unchanged.
+
 > ⚠️ **Important Notice on Data Ingestion**:
 >
 > The Olist Brazilian E-Commerce dataset has **NOT** been downloaded or ingested yet.
@@ -47,6 +55,7 @@ For detailed schema diagrams, column descriptions, and semantic layer:
 * **Database Documentation**: [docs/database.md](docs/database.md)
 * **Semantic Layer Documentation**: [docs/semantic-layer.md](docs/semantic-layer.md)
 * **SQL Guardrails & AST Validation**: [docs/sql-guardrails.md](docs/sql-guardrails.md)
+* **LangGraph Orchestration**: [docs/langgraph-orchestration.md](docs/langgraph-orchestration.md)
 
 ---
 
@@ -109,7 +118,11 @@ conversational-analytics-agent/
 │   │   ├── env.py            # Async migration runner across schemas
 │   │   └── script.py.mako    # Migration template
 │   ├── app/
-│   │   ├── agents/           # Future: LangGraph orchestration workflows
+│   │   ├── agents/           # Text-to-SQL generation + LangGraph orchestration
+│   │   │   ├── graph/        # StateGraph: state, nodes, routing, builder
+│   │   │   ├── llm_client.py # Provider clients (OpenRouter, Groq, OpenAI, Mock)
+│   │   │   ├── prompts.py    # Generation and repair feedback prompts
+│   │   │   └── sql_generator.py # Generation-only repair loop (demos/eval)
 │   │   ├── api/              # API routing and HTTP endpoints (/health)
 │   │   ├── core/             # Centralized settings (Pydantic) and logging
 │   │   ├── db/               # PostgreSQL (SQLAlchemy 2.x async) & Redis clients
@@ -134,7 +147,8 @@ conversational-analytics-agent/
 │   ├── erd.mmd               # Mermaid ER diagram
 │   ├── semantic-layer.md     # Semantic Layer documentation and query mapping guide
 │   ├── semantic-retrieval.md # Semantic Retrieval architecture, ranking, and join resolution
-│   └── sql-guardrails.md     # SQL Guardrails, AST validation, read-only policies, and limit injection
+│   ├── sql-guardrails.md     # SQL Guardrails, AST validation, read-only policies, and limit injection
+│   └── langgraph-orchestration.md # LangGraph state machine, routing, and repair semantics
 
 ├── frontend/                 # Minimal Next.js 15 client placeholder
 ├── data/
@@ -166,6 +180,8 @@ conversational-analytics-agent/
 
 3. **Semantic Layer & Agent**:
    Populate semantic definitions, configure retrieval, and implement Text-to-SQL generation with AST validation.
+4. **Conversational Extensions (next PRs)**:
+   SSE streaming of graph node transitions, checkpointer-backed multi-turn conversations, clarification interrupts, and visualization/summarization nodes.
 
 ---
 

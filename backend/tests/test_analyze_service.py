@@ -1,10 +1,13 @@
-"""Tests for AnalyzeService orchestration and the POST /analyze endpoint."""
+"""Tests for AnalyzeService LangGraph orchestration and the POST /analyze endpoint."""
+
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
 
-from app.agents.llm_client import LLMError
-from app.agents.schemas import SQLGenerationResponse
+from app.agents.graph.nodes import ValidatorLike
+from app.agents.llm_client import BaseLLMClient, LLMError, MockLLMClient
 from app.main import app
 from app.repositories.schemas import ExecutionResult, ExecutionStatus
 from app.schemas.analyze import AnalyzeResponse
@@ -15,6 +18,13 @@ from app.semantic.retrieval.schemas import (
     SelectedMetric,
 )
 from app.services.analyze_service import AnalyzeService, get_analyze_service
+
+VALID_SQL = "SELECT SUM(p.payment_value) FROM business.payments p"
+
+
+def fenced(sql: str) -> str:
+    """Wrap SQL in a ```sql fence exactly as LLM responses appear."""
+    return f"```sql\n{sql}\n```"
 
 
 def make_retrieval(
@@ -28,7 +38,7 @@ def make_retrieval(
             SelectedMetric(
                 name="revenue",
                 description="Total revenue",
-                expression="SUMpayments(value)",
+                expression="SUM(p.payment_value)",
                 aggregation="SUM",
                 source_tables=["business.payments"],
                 score=0.92,
@@ -44,22 +54,6 @@ def make_retrieval(
         selected_metrics=metrics,
         selected_dimensions=[],
         is_safe_for_direct_execution=not unsafe_join,
-    )
-
-
-def make_generation(
-    is_valid: bool = True,
-    final_sql: str | None = "SELECT SUM(p.value) FROM business.payments p",
-    raw_sql: str | None = None,
-) -> SQLGenerationResponse:
-    """Build a SQLGenerationResponse fixture."""
-    return SQLGenerationResponse(
-        question="test question",
-        raw_sql=raw_sql if raw_sql is not None else (final_sql or ""),
-        is_valid=is_valid,
-        final_sql=final_sql if is_valid else None,
-        validation_result=ValidationResult(is_valid=is_valid, original_sql=raw_sql or ""),
-        model_used="mock-model",
     )
 
 
@@ -93,35 +87,6 @@ class FakeRetriever:
         return self.result
 
 
-class FakeGenerator:
-    """Stub SQL generator returning a canned SQLGenerationResponse and execution result."""
-
-    def __init__(
-        self,
-        response: SQLGenerationResponse,
-        execution: ExecutionResult | None = None,
-    ) -> None:
-        self.response = response
-        self.execution = execution
-        self.requests: list = []
-
-    async def generate_and_execute_async(
-        self, request, executor=None
-    ) -> tuple[SQLGenerationResponse, ExecutionResult | None]:
-        self.requests.append(request)
-        return self.response, self.execution
-
-
-class FailingGenerator:
-    """Stub SQL generator that raises LLMError, simulating a provider outage."""
-
-    def __init__(self, exc: LLMError) -> None:
-        self.exc = exc
-
-    async def generate_and_execute_async(self, request, executor=None) -> tuple:
-        raise self.exc
-
-
 class FakeRepository:
     """Stub executor returning a canned ExecutionResult and recording input SQL."""
 
@@ -129,57 +94,112 @@ class FakeRepository:
         self.result = result
         self.calls: list[str] = []
 
-    async def execute(self, sql: str, **kwargs) -> ExecutionResult:
+    async def execute(self, sql: str, **kwargs: object) -> ExecutionResult:
         self.calls.append(sql)
         return self.result
 
 
+class ValidatorStub:
+    """Guardrail validator stub that delegates to a canned decision function."""
+
+    def __init__(self, decide: Callable[[str], ValidationResult]) -> None:
+        self._decide = decide
+        self.calls: list[str] = []
+
+    def validate(self, sql: str) -> ValidationResult:
+        self.calls.append(sql)
+        return self._decide(sql)
+
+
+class AlwaysValidValidator:
+    """Validator stub that accepts every candidate and returns it unchanged."""
+
+    def validate(self, sql: str) -> ValidationResult:
+        return ValidationResult(is_valid=True, original_sql=sql, sanitized_sql=sql)
+
+
+class RejectingValidator:
+    """Validator stub that rejects every candidate."""
+
+    def validate(self, sql: str) -> ValidationResult:
+        return ValidationResult(is_valid=False, original_sql=sql)
+
+
+class FailingLLM(BaseLLMClient):
+    """LLM stub that always raises a provider error."""
+
+    def generate(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        raise LLMError("provider down")
+
+    async def generate_async(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        raise LLMError("OpenRouter API error (404): model `string` not found")
+
+
+def make_service(
+    *,
+    retrieval: RetrievalResult,
+    llm: BaseLLMClient,
+    repository: FakeRepository,
+    validator: ValidatorLike | None = None,
+    max_guardrail_repairs: int = 3,
+    max_execution_repairs: int = 2,
+) -> AnalyzeService:
+    """Build an AnalyzeService wired with fake components."""
+    return AnalyzeService(
+        retriever=FakeRetriever(retrieval),
+        llm_client=llm,
+        validator=validator or AlwaysValidValidator(),
+        repository=repository,
+        max_guardrail_repairs=max_guardrail_repairs,
+        max_execution_repairs=max_execution_repairs,
+    )
+
+
 @pytest.mark.asyncio
 async def test_service_full_success_pipeline() -> None:
-    """Verify orchestration passes sanitized SQL from generator to repository."""
-    retrieval = make_retrieval()
-    generation = make_generation()
+    """Verify the graph passes sanitized SQL from generation to the repository."""
     execution = make_execution()
-    service = AnalyzeService(
-        retriever=FakeRetriever(retrieval),
-        generator=FakeGenerator(generation, execution),
-        repository=FakeRepository(execution),
-    )
+    repository = FakeRepository(execution)
+    llm = MockLLMClient(responses=[fenced(VALID_SQL)])
+    service = make_service(retrieval=make_retrieval(), llm=llm, repository=repository)
 
     response = await service.analyze("what is total revenue?")
 
     assert response.success is True
     assert response.failed_stage is None
     assert response.failure_reason is None
-    assert response.final_sql == generation.final_sql
+    assert response.final_sql == VALID_SQL
     assert response.retrieval_status == RetrievalStatus.SUCCESS
     assert response.execution is execution
+    assert repository.calls == [VALID_SQL]
+    assert len(llm.call_history) == 1
 
 
 @pytest.mark.asyncio
 async def test_service_fails_at_retrieval_without_metrics() -> None:
     """Verify no LLM call occurs when retrieval matches nothing."""
-    fake_generator = FakeGenerator(make_generation())
-    service = AnalyzeService(
-        retriever=FakeRetriever(make_retrieval(with_metrics=False)),
-        generator=fake_generator,
-        repository=FakeRepository(make_execution()),
+    llm = MockLLMClient(responses=[fenced(VALID_SQL)])
+    repository = FakeRepository(make_execution())
+    service = make_service(
+        retrieval=make_retrieval(with_metrics=False), llm=llm, repository=repository
     )
 
     response = await service.analyze("hello weather today?")
 
     assert response.success is False
     assert response.failed_stage == "retrieval"
-    assert fake_generator.requests == []
+    assert llm.call_history == []
+    assert repository.calls == []
     assert response.execution is None
 
 
 @pytest.mark.asyncio
 async def test_service_fails_at_retrieval_on_unsafe_join() -> None:
     """Verify unsafe join plans stop the pipeline before generation."""
-    service = AnalyzeService(
-        retriever=FakeRetriever(make_retrieval(unsafe_join=True)),
-        generator=FakeGenerator(make_generation()),
+    llm = MockLLMClient(responses=[fenced(VALID_SQL)])
+    service = make_service(
+        retrieval=make_retrieval(unsafe_join=True),
+        llm=llm,
         repository=FakeRepository(make_execution()),
     )
 
@@ -187,16 +207,21 @@ async def test_service_fails_at_retrieval_on_unsafe_join() -> None:
 
     assert response.success is False
     assert response.failed_stage == "retrieval"
-    assert "unsafe" in response.failure_reason
+    assert "unsafe" in (response.failure_reason or "")
+    assert llm.call_history == []
 
 
 @pytest.mark.asyncio
 async def test_service_fails_at_generation_on_guardrail_exhaustion() -> None:
-    """Verify exhausted self-repair attempts stop execution."""
-    service = AnalyzeService(
-        retriever=FakeRetriever(make_retrieval()),
-        generator=FakeGenerator(make_generation(is_valid=False, raw_sql="HACK")),
-        repository=FakeRepository(make_execution()),
+    """Verify exhausted guardrail repair attempts stop before execution."""
+    repository = FakeRepository(make_execution())
+    llm = MockLLMClient(responses=[fenced("DROP TABLE business.orders")] * 10)
+    service = make_service(
+        retrieval=make_retrieval(),
+        llm=llm,
+        repository=repository,
+        validator=RejectingValidator(),
+        max_guardrail_repairs=2,
     )
 
     response = await service.analyze("what is total revenue?")
@@ -204,17 +229,17 @@ async def test_service_fails_at_generation_on_guardrail_exhaustion() -> None:
     assert response.success is False
     assert response.failed_stage == "generation"
     assert response.execution is None
-    assert response.raw_sql == "HACK"
+    assert response.raw_sql == "DROP TABLE business.orders"
+    assert response.repair_attempts == 2
+    assert repository.calls == []
 
 
 @pytest.mark.asyncio
 async def test_service_fails_at_generation_on_llm_provider_error() -> None:
     """Verify an LLMError is mapped to a graceful generation-stage failure."""
-    service = AnalyzeService(
-        retriever=FakeRetriever(make_retrieval()),
-        generator=FailingGenerator(
-            LLMError("OpenRouter API error (404): model `string` not found")
-        ),
+    service = make_service(
+        retrieval=make_retrieval(),
+        llm=FailingLLM(),
         repository=FakeRepository(make_execution()),
     )
 
@@ -229,14 +254,13 @@ async def test_service_fails_at_generation_on_llm_provider_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_service_fails_at_execution_on_database_error() -> None:
-    """Verify database failures surface as failed_stage='execution'."""
-    service = AnalyzeService(
-        retriever=FakeRetriever(make_retrieval()),
-        generator=FakeGenerator(
-            make_generation(), make_execution(status=ExecutionStatus.DATABASE_ERROR)
-        ),
-        repository=FakeRepository(make_execution(status=ExecutionStatus.DATABASE_ERROR)),
+async def test_service_fails_at_execution_on_non_repairable_error() -> None:
+    """Verify non-repairable execution failures surface as failed_stage='execution'."""
+    failure = make_execution(status=ExecutionStatus.CANCELLED)
+    service = make_service(
+        retrieval=make_retrieval(),
+        llm=MockLLMClient(responses=[fenced(VALID_SQL)]),
+        repository=FakeRepository(failure),
     )
 
     response = await service.analyze("what is total revenue?")
@@ -245,6 +269,7 @@ async def test_service_fails_at_execution_on_database_error() -> None:
     assert response.failed_stage == "execution"
     assert response.failure_reason is not None
     assert "failed on purpose" in response.failure_reason
+    assert response.execution is failure
 
 
 @pytest.mark.asyncio
@@ -259,17 +284,16 @@ async def test_service_truncation_and_warning_pass_through() -> None:
         total_rows_fetched=2,
         truncated=True,
     )
-    retrieval = make_retrieval()
-    generation = make_generation()
-    service = AnalyzeService(
-        retriever=FakeRetriever(retrieval),
-        generator=FakeGenerator(generation, execution),
+    service = make_service(
+        retrieval=make_retrieval(),
+        llm=MockLLMClient(responses=[fenced(VALID_SQL)]),
         repository=FakeRepository(execution),
     )
 
     response = await service.analyze("what is total revenue?")
 
     assert response.success is True
+    assert response.execution is not None
     assert response.execution.truncated is True
 
 
@@ -278,7 +302,13 @@ async def test_endpoint_full_success(async_client: AsyncClient) -> None:
     """Verify POST /analyze returns 200 with execution rows."""
 
     class StubService:
-        async def analyze(self, question, *, model=None, temperature=0.0):
+        async def analyze(
+            self,
+            question: str,
+            *,
+            model: str | None = None,
+            temperature: float = 0.0,
+        ) -> AnalyzeResponse:
             return AnalyzeResponse(
                 question=question,
                 success=True,
@@ -310,7 +340,13 @@ async def test_endpoint_reports_failed_stage(async_client: AsyncClient) -> None:
     """Verify failed pipelines still return 200 with diagnostics."""
 
     class StubService:
-        async def analyze(self, question, *, model=None, temperature=0.0):
+        async def analyze(
+            self,
+            question: str,
+            *,
+            model: str | None = None,
+            temperature: float = 0.0,
+        ) -> AnalyzeResponse:
             return AnalyzeResponse(
                 question=question,
                 success=False,

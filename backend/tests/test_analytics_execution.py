@@ -105,6 +105,7 @@ async def test_execution_timeout_maps_to_timeout_status(repository: AnalyticsRep
 
     assert result.status == ExecutionStatus.TIMEOUT
     assert result.error_code == "EXECUTION_TIMEOUT"
+    assert result.error_message is not None
     assert "timeout" in result.error_message.lower()
 
 
