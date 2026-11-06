@@ -124,6 +124,18 @@ class Settings(BaseSettings):
         description="Maximum self-repair iteration attempts when validation fails.",
     )
 
+    # SQL Execution Configuration
+    SQL_EXECUTION_TIMEOUT: float = Field(
+        default=10.0,
+        description="Maximum seconds a validated analytical query may run before cancellation.",
+        gt=0.0,
+    )
+    SQL_MAX_ROWS: int = Field(
+        default=5000,
+        description="Hard cap on fetched result rows, independent of the SQL LIMIT clause.",
+        ge=1,
+    )
+
     @property
     def database_url(self) -> str:
         """Construct the async SQLAlchemy PostgreSQL connection string."""

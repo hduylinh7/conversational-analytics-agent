@@ -1,6 +1,6 @@
 """Pydantic schemas and data structures for Semantic Retrieval results and configurations."""
 
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,7 +12,7 @@ from app.semantic.models import (
 )
 
 
-class RetrievalStatus(str, Enum):
+class RetrievalStatus(StrEnum):
     """Execution status and sufficiency of retrieved metadata."""
 
     SUCCESS = "SUCCESS"

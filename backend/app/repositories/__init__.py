@@ -6,4 +6,17 @@ Intended future responsibilities:
 - SchemaRepository: Query PostgreSQL information schema, table definitions, and column metadata.
 """
 
-__all__: list[str] = []
+from app.repositories.analytics import (
+    AnalyticsRepository,
+    execute_analytics_query,
+    get_analytics_repository,
+)
+from app.repositories.schemas import ExecutionResult, ExecutionStatus
+
+__all__: list[str] = [
+    "AnalyticsRepository",
+    "ExecutionResult",
+    "ExecutionStatus",
+    "execute_analytics_query",
+    "get_analytics_repository",
+]

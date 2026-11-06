@@ -8,4 +8,6 @@ Intended future responsibilities:
 - AuditService: Record user interactions, generated SQL, execution times, and errors.
 """
 
-__all__: list[str] = []
+from app.services.analyze_service import AnalyzeService, get_analyze_service
+
+__all__: list[str] = ["AnalyzeService", "get_analyze_service"]
