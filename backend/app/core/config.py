@@ -123,6 +123,11 @@ class Settings(BaseSettings):
         default=3,
         description="Maximum self-repair iteration attempts when validation fails.",
     )
+    SQL_MAX_EXECUTION_REPAIR_ATTEMPTS: int = Field(
+        default=2,
+        description="Maximum self-repair iteration attempts when PostgreSQL execution fails "
+        "(TIMEOUT, DATABASE_ERROR). Shares the chat history with the generation loop.",
+    )
 
     # SQL Execution Configuration
     SQL_EXECUTION_TIMEOUT: float = Field(

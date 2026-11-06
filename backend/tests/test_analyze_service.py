@@ -94,15 +94,22 @@ class FakeRetriever:
 
 
 class FakeGenerator:
-    """Stub SQL generator returning a canned SQLGenerationResponse."""
+    """Stub SQL generator returning a canned SQLGenerationResponse and execution result."""
 
-    def __init__(self, response: SQLGenerationResponse) -> None:
+    def __init__(
+        self,
+        response: SQLGenerationResponse,
+        execution: ExecutionResult | None = None,
+    ) -> None:
         self.response = response
+        self.execution = execution
         self.requests: list = []
 
-    async def generate_async(self, request) -> SQLGenerationResponse:
+    async def generate_and_execute_async(
+        self, request, executor=None
+    ) -> tuple[SQLGenerationResponse, ExecutionResult | None]:
         self.requests.append(request)
-        return self.response
+        return self.response, self.execution
 
 
 class FailingGenerator:
@@ -111,7 +118,7 @@ class FailingGenerator:
     def __init__(self, exc: LLMError) -> None:
         self.exc = exc
 
-    async def generate_async(self, request) -> SQLGenerationResponse:
+    async def generate_and_execute_async(self, request, executor=None) -> tuple:
         raise self.exc
 
 
@@ -135,7 +142,7 @@ async def test_service_full_success_pipeline() -> None:
     execution = make_execution()
     service = AnalyzeService(
         retriever=FakeRetriever(retrieval),
-        generator=FakeGenerator(generation),
+        generator=FakeGenerator(generation, execution),
         repository=FakeRepository(execution),
     )
 
@@ -226,7 +233,9 @@ async def test_service_fails_at_execution_on_database_error() -> None:
     """Verify database failures surface as failed_stage='execution'."""
     service = AnalyzeService(
         retriever=FakeRetriever(make_retrieval()),
-        generator=FakeGenerator(make_generation()),
+        generator=FakeGenerator(
+            make_generation(), make_execution(status=ExecutionStatus.DATABASE_ERROR)
+        ),
         repository=FakeRepository(make_execution(status=ExecutionStatus.DATABASE_ERROR)),
     )
 
@@ -251,9 +260,10 @@ async def test_service_truncation_and_warning_pass_through() -> None:
         truncated=True,
     )
     retrieval = make_retrieval()
+    generation = make_generation()
     service = AnalyzeService(
         retriever=FakeRetriever(retrieval),
-        generator=FakeGenerator(make_generation()),
+        generator=FakeGenerator(generation, execution),
         repository=FakeRepository(execution),
     )
 

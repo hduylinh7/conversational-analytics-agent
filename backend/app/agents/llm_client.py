@@ -95,8 +95,12 @@ class OpenRouterClient(BaseLLMClient):
                 data = response.json()
                 return str(data["choices"][0]["message"]["content"])
         except httpx.HTTPStatusError as exc:
-            logger.error("OpenRouter HTTP error: %s - %s", exc.response.status_code, exc.response.text)
-            raise LLMError(f"OpenRouter API error ({exc.response.status_code}): {exc.response.text}") from exc
+            logger.error(
+                "OpenRouter HTTP error: %s - %s", exc.response.status_code, exc.response.text
+            )
+            raise LLMError(
+                f"OpenRouter API error ({exc.response.status_code}): {exc.response.text}"
+            ) from exc
         except Exception as exc:
             logger.error("OpenRouter generation failed: %s", exc)
             raise LLMError(f"OpenRouter client error: {str(exc)}") from exc
@@ -117,8 +121,12 @@ class OpenRouterClient(BaseLLMClient):
                 data = response.json()
                 return str(data["choices"][0]["message"]["content"])
         except httpx.HTTPStatusError as exc:
-            logger.error("OpenRouter async HTTP error: %s - %s", exc.response.status_code, exc.response.text)
-            raise LLMError(f"OpenRouter API error ({exc.response.status_code}): {exc.response.text}") from exc
+            logger.error(
+                "OpenRouter async HTTP error: %s - %s", exc.response.status_code, exc.response.text
+            )
+            raise LLMError(
+                f"OpenRouter API error ({exc.response.status_code}): {exc.response.text}"
+            ) from exc
         except Exception as exc:
             logger.error("OpenRouter async generation failed: %s", exc)
             raise LLMError(f"OpenRouter client error: {str(exc)}") from exc
@@ -164,6 +172,18 @@ SELECT
     o.order_status
 FROM business.orders o
 WHERE o.order_status = 'delivered';
+```"""
+
+        if "FAILED while executing against PostgreSQL" in user_msg:
+            # Execution self-repair: return a recalled-order aggregate on verified
+            # semantic-layer columns (safe fallback for offline/mock runs).
+            return """```sql
+SELECT
+    o.order_status,
+    COUNT(DISTINCT o.order_id) AS order_count
+FROM business.orders o
+GROUP BY o.order_status
+ORDER BY order_count DESC;
 ```"""
 
         # Chasm Trap CTE query
@@ -269,4 +289,3 @@ def create_llm_client() -> BaseLLMClient:
             temperature=settings.LLM_TEMPERATURE,
         )
     return OpenRouterClient()
-

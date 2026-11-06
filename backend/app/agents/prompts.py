@@ -89,6 +89,62 @@ original business intent. Reply with the corrected single query in a \
 """
 
 
+SQL_EXECUTION_REPAIR_FEEDBACK_TEMPLATE = """\
+The previous SQL query passed all guardrail checks but FAILED while \
+executing against PostgreSQL (repair attempt {attempt}/{max_attempts}).
+
+### Offending Query
+```sql
+{generated_sql}
+```
+
+### Database Error
+- SQLSTATE: {error_code}
+- Message: {error_message}
+- Likely cause: {error_hint}
+
+### Instruction
+{error_hint} Rewrite the query to fix ONLY this error while preserving \
+the original business intent. Reference only tables and columns from the \
+semantic context given earlier. Reply with the corrected single query in \
+a ```sql fenced block.
+"""
+
+
+# PostgreSQL SQLSTATE -> repair guidance shown to the LLM in execution repair prompts.
+POSTGRES_ERROR_HINTS: dict[str, str] = {
+    "42703": "The query references a column that does not exist on the table. "
+    "Use ONLY columns from the semantic context and re-check spelling/aliases.",
+    "42P01": "The query references a table that does not exist. "
+    "Always qualify tables as schema.table and use only tables from the join path.",
+    "42601": "The query contains a syntax error near a keyword or operator. "
+    "Check the PostgreSQL grammar around the reported position.",
+    "42883": "The query calls a function with wrong arguments or a non-existent function. "
+    "Use only standard PostgreSQL functions with valid argument types.",
+    "42702": "A column reference is ambiguous between multiple joined tables. "
+    "Qualify every column with its table alias.",
+    "42803": "An aggregate or non-grouped column appears outside GROUP BY rules. "
+    "GROUP BY every non-aggregated SELECT column.",
+    "42P10": "The GROUP BY expression does not match the SELECT list. "
+    "Align GROUP BY with the non-aggregated SELECT columns.",
+    "22012": "A division by zero occurred. Guard denominators with NULLIF(denominator, 0).",
+    "22P02": "A literal value is not convertible to the target column type. "
+    "Match literal formats to column data types.",
+    "57014": "The query was cancelled because it exceeded the execution timeout. "
+    "Restrict the time window and reduce the scanned row count.",
+}
+
+
+def describe_execution_error(error_code: str | None) -> str:
+    """Return LLM repair guidance for a PostgreSQL SQLSTATE or execution error code."""
+    if error_code is None:
+        return "Inspect the database error message and fix the query accordingly."
+    return POSTGRES_ERROR_HINTS.get(
+        error_code,
+        "Inspect the database error message and fix the query accordingly.",
+    )
+
+
 def _render_metrics(metrics: list[SelectedMetric]) -> str:
     """Render selected metrics with expressions, filters, and warnings for the prompt."""
     if not metrics:
@@ -119,13 +175,9 @@ def _render_dimensions(dimensions: list[SelectedDimension]) -> str:
             f" (table alias: {dimension.source_table})"
         )
         for transformation in dimension.transformations:
-            lines.append(
-                f"  Transformation `{transformation.name}`: {transformation.expression}"
-            )
+            lines.append(f"  Transformation `{transformation.name}`: {transformation.expression}")
         if dimension.allowed_values:
-            lines.append(
-                f"  Allowed values: {', '.join(dimension.allowed_values[:15])}"
-            )
+            lines.append(f"  Allowed values: {', '.join(dimension.allowed_values[:15])}")
     return "\n".join(lines)
 
 
@@ -135,7 +187,9 @@ def _render_join_path(join_path: ResolvedJoinPath | None) -> str:
         return "- (no explicit path resolved; JOIN only on tables sharing declared foreign keys)"
     lines = [f"- Root FROM: {join_path.root_table}"]
     for idx, step in enumerate(join_path.steps, start=1):
-        safety = "safe for aggregation" if step.is_safe_for_aggregation else "UNSAFE for aggregation"
+        safety = (
+            "safe for aggregation" if step.is_safe_for_aggregation else "UNSAFE for aggregation"
+        )
         lines.append(
             f"  {idx}. {step.join_type} JOIN {step.to_table} ON {step.join_condition} "
             f"[{step.cardinality}, {safety}]"
@@ -143,9 +197,7 @@ def _render_join_path(join_path: ResolvedJoinPath | None) -> str:
         if step.warning:
             lines.append(f"     WARNING: {step.warning}")
     if join_path.intermediate_tables:
-        lines.append(
-            f"- Bridge tables required: {', '.join(join_path.intermediate_tables)}"
-        )
+        lines.append(f"- Bridge tables required: {', '.join(join_path.intermediate_tables)}")
     if join_path.warnings:
         for warning in join_path.warnings:
             lines.append(f"- PATH WARNING: {warning}")
@@ -156,9 +208,7 @@ def _render_filters(filters: list) -> str:  # noqa: ANN401 - list[FilterConditio
     """Render warehouse-level mandatory filters."""
     if not filters:
         return "- (none)"
-    return "\n".join(
-        f"- [{condition.description}] {condition.condition}" for condition in filters
-    )
+    return "\n".join(f"- [{condition.description}] {condition.condition}" for condition in filters)
 
 
 def _render_warnings(warnings: list[str]) -> str:
@@ -186,7 +236,9 @@ def render_user_prompt(
         )
     return SQL_USER_CONTEXT_TEMPLATE.format(
         question=question,
-        status=retrieval_result.status.value if isinstance(retrieval_result.status, RetrievalStatus) else str(retrieval_result.status),
+        status=retrieval_result.status.value
+        if isinstance(retrieval_result.status, RetrievalStatus)
+        else str(retrieval_result.status),
         confidence=retrieval_result.confidence_score,
         metrics=_render_metrics(retrieval_result.selected_metrics),
         dimensions=_render_dimensions(retrieval_result.selected_dimensions),
@@ -214,6 +266,24 @@ def render_repair_feedback_prompt(
         violations=bullet_violations,
         warnings=bullet_warnings,
         extra_instruction="Fix every CRITICAL and HIGH violation before resubmitting.",
+    )
+
+
+def render_execution_repair_feedback_prompt(
+    generated_sql: str,
+    error_code: str | None,
+    error_message: str | None,
+    attempt: int,
+    max_attempts: int,
+) -> str:
+    """Render corrective feedback for a failed PostgreSQL execution turn."""
+    return SQL_EXECUTION_REPAIR_FEEDBACK_TEMPLATE.format(
+        attempt=attempt,
+        max_attempts=max_attempts,
+        generated_sql=generated_sql,
+        error_code=error_code or "UNKNOWN",
+        error_message=error_message or "(no message reported)",
+        error_hint=describe_execution_error(error_code),
     )
 
 

@@ -38,9 +38,14 @@ class RepairStep(BaseModel):
         ...,
         description="1-based iteration index of the repair attempt.",
     )
+    stage: str = Field(
+        default="guardrail",
+        description="Stage that triggered the repair: 'guardrail' (preflight validation) "
+        "or 'execution' (PostgreSQL runtime failure).",
+    )
     generated_sql: str = Field(
         ...,
-        description="The SQL generated in this iteration that failed validation.",
+        description="The SQL generated in this iteration that failed validation or execution.",
     )
     violations: list[SecurityViolation] = Field(
         default_factory=list,
@@ -49,6 +54,14 @@ class RepairStep(BaseModel):
     warnings: list[str] = Field(
         default_factory=list,
         description="Warnings produced during validation.",
+    )
+    error_code: str | None = Field(
+        default=None,
+        description="PostgreSQL SQLSTATE or execution error code when stage='execution'.",
+    )
+    error_message: str | None = Field(
+        default=None,
+        description="Human-readable database error message when stage='execution'.",
     )
     feedback_prompt: str = Field(
         ...,
@@ -87,7 +100,7 @@ class SQLGenerationResponse(BaseModel):
     )
     repair_attempts: int = Field(
         default=0,
-        description="Number of self-repair feedback iterations executed.",
+        description="Number of self-repair feedback iterations executed (guardrail and execution).",
     )
     repair_history: list[RepairStep] = Field(
         default_factory=list,
@@ -105,4 +118,3 @@ class SQLGenerationResponse(BaseModel):
         default=None,
         description="Total token consumption if reported by LLM provider.",
     )
-

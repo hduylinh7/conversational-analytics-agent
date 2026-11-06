@@ -1,7 +1,8 @@
 """AnalyzeService: end-to-end analytics pipeline orchestration.
 
 Pipeline: semantic retrieval -> Text-to-SQL generation with self-repair ->
-guardrail re-validation (inside repository) -> PostgreSQL execution.
+guardrail re-validation (inside repository) -> PostgreSQL execution ->
+execution-error self-repair loop (SQLSTATE feedback to the LLM).
 """
 
 from app.agents.llm_client import LLMError
@@ -49,12 +50,9 @@ class AnalyzeService:
         ):
             return f"Retrieval stopped with status {retrieval.status}: {retrieval.warnings}"
 
-        is_unsafe_join = (
-            not retrieval.is_safe_for_direct_execution
-            or (
-                retrieval.resolved_join_path is not None
-                and not retrieval.resolved_join_path.is_safe_for_direct_execution
-            )
+        is_unsafe_join = not retrieval.is_safe_for_direct_execution or (
+            retrieval.resolved_join_path is not None
+            and not retrieval.resolved_join_path.is_safe_for_direct_execution
         )
         if is_unsafe_join:
             return "Resolved join path is unsafe for direct execution: " + "; ".join(
@@ -93,13 +91,14 @@ class AnalyzeService:
             )
 
         try:
-            generation = await self.generator.generate_async(
+            generation, execution = await self.generator.generate_and_execute_async(
                 SQLGenerationRequest(
                     question=question,
                     retrieval_result=retrieval,
                     model=model,
                     temperature=temperature,
-                )
+                ),
+                executor=self.repository.execute,
             )
         except LLMError as exc:
             logger.error("LLM provider error for question '%s': %s", question, exc)
@@ -118,7 +117,10 @@ class AnalyzeService:
 
         if not generation.is_valid or generation.final_sql is None:
             violation_messages = (
-                [f"{v.severity} {v.rule}: {v.message}" for v in generation.validation_result.violations]
+                [
+                    f"{v.severity} {v.rule}: {v.message}"
+                    for v in generation.validation_result.violations
+                ]
                 if generation.validation_result is not None
                 else []
             )
@@ -147,18 +149,26 @@ class AnalyzeService:
                 warnings=retrieval.warnings,
             )
 
-        execution = await self.repository.execute(generation.final_sql)
-
-        execution_failure = self._execution_failure(execution)
+        execution_failure = self._execution_failure(execution) if execution is not None else None
         warnings = [*retrieval.warnings]
         if generation.validation_result is not None:
             warnings.extend(generation.validation_result.warnings)
+        for repair in generation.repair_history:
+            if repair.stage == "execution" and repair.error_code:
+                warnings.append(
+                    f"SQL self-repair after execution error {repair.error_code}: "
+                    f"{repair.error_message or 'no message'}"
+                )
 
-        success = execution.status == ExecutionStatus.SUCCESS
+        success = execution is not None and execution.status == ExecutionStatus.SUCCESS
         return AnalyzeResponse(
             question=question,
             success=success,
-            failed_stage=None if success else STAGE_EXECUTION,
+            failed_stage=(
+                None
+                if success
+                else (STAGE_EXECUTION if execution is not None else STAGE_GENERATION)
+            ),
             failure_reason=execution_failure,
             retrieval_status=retrieval.status,
             confidence_score=retrieval.confidence_score,
