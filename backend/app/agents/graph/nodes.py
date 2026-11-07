@@ -32,6 +32,12 @@ STAGE_RETRIEVAL = "retrieval"
 STAGE_GENERATION = "generation"
 STAGE_EXECUTION = "execution"
 
+# With a checkpointer, ``messages`` persists across turns of the same thread.
+# Follow-up turns replay a window of this shared conversation to the LLM so
+# requests like "and group that by month?" keep their context. The cap bounds
+# prompt growth as conversations get longer.
+MAX_CARRIED_MESSAGES = 24
+
 
 class RetrieverLike(Protocol):
     """Structural type for the semantic retriever used by the graph."""
@@ -116,10 +122,17 @@ class AnalyticsNodes:
     # ------------------------------------------------------------------
 
     async def retrieve(self, state: AnalyticsState) -> dict:
-        """Run semantic retrieval and short-circuit unsafe or non-analytics questions."""
+        """Run semantic retrieval and short-circuit unsafe or non-analytics questions.
+
+        On success the shared LLM conversation is seeded from the checkpoint
+        (prior turns of the same thread, when multi-turn is enabled) and the
+        new turn's prompt is appended, so follow-up questions reach the
+        generator with their context.
+        """
         question = state.get("question", "")
         retrieval = self.retriever.retrieve(question)
         failure = retrieval_failure_reason(retrieval)
+        prior_messages = list(state.get("messages", []))[-MAX_CARRIED_MESSAGES:]
 
         update: dict = {
             "retrieval": retrieval,
@@ -138,7 +151,10 @@ class AnalyticsNodes:
                 model=state.get("model"),
                 temperature=state.get("temperature", 0.0),
             )
-            update["messages"] = build_initial_messages(request)
+            update["messages"] = [
+                *prior_messages,
+                *build_initial_messages(request),
+            ]
         return update
 
     async def generate(self, state: AnalyticsState) -> dict:

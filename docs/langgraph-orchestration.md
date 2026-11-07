@@ -129,15 +129,53 @@ python scripts/demo_langgraph.py                      # all scenarios
 python scripts/demo_langgraph.py --scenario happy
 python scripts/demo_langgraph.py --scenario guardrail-repair
 python scripts/demo_langgraph.py --scenario execution-repair
+python scripts/demo_langgraph.py --scenario combined-repair   # guardrail + SQLSTATE in one run
+python scripts/demo_langgraph.py --scenario non-repairable    # CANCELLED stops immediately
+python scripts/demo_langgraph.py --scenario execution-repair --verbose
+python scripts/demo_langgraph.py --strict              # exit 1 on unexpected outcome
 python scripts/demo_langgraph.py --mermaid             # graph topology
 ```
 
-Each line shows the node name, the relevant state update (retrieval status, SQL candidate, guardrail decision, SQLSTATE, repair feedback, final result) and the node latency.
+Each line shows the node name, the relevant state update (retrieval status, SQL candidate, guardrail decision, SQLSTATE, repair feedback, final result) and the node latency. `--verbose` expands the SQL candidate, individual guardrail violations, database error messages, and the first lines of each repair prompt. `--strict` compares every scenario with its declared expected outcome and returns a non-zero exit code on a mismatch, which makes the demo usable as a smoke test.
+
+When more than one scenario runs, a summary table reports the observed result, failed stage, repair count, node count, and duration for each scenario.
 
 ---
 
-## 7. Deferred to Later PRs
+## 7. Checkpointing (Multi-Turn Conversations)
 
-- **Streaming**: `graph.astream()` updates exposed through a new `/analyze/stream` (SSE) endpoint.
-- **Checkpointing**: `MemorySaver`/Redis checkpointer keyed by conversation ID for multi-turn follow-ups.
-- **Additional nodes**: question interpretation, clarification interrupts, visualization specs, result summarization, and persistence into `app.conversations` / `app.messages`.
+The graph can be compiled with a LangGraph `BaseCheckpointSaver`, which snapshots state after every superstep keyed by `config.configurable.thread_id`:
+
+```python
+graph = build_analytics_graph(nodes, checkpointer=checkpointer)
+result = await graph.ainvoke(
+    initial_state,
+    config={"configurable": {"thread_id": thread_id}, "recursion_limit": limit},
+)
+```
+
+- **Backends** (`CHECKPOINTER_BACKEND` env): `memory` (default, per-process `MemorySaver`) or `redis` (`AsyncRedisSaver`, persistent and shared across replicas; requires `langgraph-checkpoint-redis`). The backend is built once at app startup by `agents.graph.checkpointer.init_checkpointer()` and closed on shutdown.
+- **Thread ids**: the API accepts `conversation_id` in `AnalyzeRequest` and echoes it on `AnalyzeResponse.conversation_id`. When omitted and a checkpointer exists, the service synthesizes a fresh UUID thread for each request (caller may pass it back to continue).
+- **Multi-turn context**: because state is restored per thread, the `retrieve` node replays up to `MAX_CARRIED_MESSAGES` older `messages` from previous turns and appends the new turn's prompt, so follow-ups like "and group by month?" keep their context. Per-turn artifacts (repair counters, `sql_candidate`, `execution`, ...) are explicitly reset in the request's initial state so stale values from earlier turns can never leak into a new response.
+- With no checkpointer attached (unit tests, offline scripts), runs are stateless exactly as before.
+
+## 8. SSE Streaming (`POST /analyze/stream`)
+
+`AnalyzeService.stream_analyze()` drives the graph with `graph.astream(..., stream_mode="updates")` and yields `(event, payload)` tuples; `api/routes/analyze.py` serializes them as Server-Sent Events with keep-alive comments (`services/sse.py:heartbeat_stream`) whenever the pipeline is silent (e.g. during long LLM calls), defeating reverse-proxy timeouts.
+
+| Event | When | `data` |
+|---|---|---|
+| `start` | before any graph work | `{"conversation_id": ...}` |
+| `node` | after each node updates state | `{"node": retrieve\|generate\|validate\|execute\|repair}` |
+| `result` | `finalize` produced the response | `{"conversation_id": ..., "response": AnalyzeResponse}` |
+| `error` | pipeline failure (incl. recursion limit) | `{"reason": ...}` |
+| `done` | always last, before closing the stream | `{}` |
+
+Frames are `text/event-stream` with `Cache-Control: no-cache` and `X-Accel-Buffering: no`; unexpected exceptions inside the stream degrade to an `error` event followed by `done` instead of breaking the connection silently.
+
+---
+
+## 9. Remaining Deferred Work
+
+- **Conversation persistence**: records into `app.conversations` / `app.messages` and audit rows into `app.query_executions` (read-only `GET /conversations` history).
+- **Additional nodes**: question interpretation, clarification interrupts, visualization specs, and result summarization.

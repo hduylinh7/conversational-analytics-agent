@@ -136,6 +136,25 @@ class Settings(BaseSettings):
         description="Hard cap on LangGraph supersteps, preventing runaway orchestration loops.",
     )
 
+    # LangGraph Checkpointing Configuration (multi-turn conversation memory)
+    CHECKPOINTER_BACKEND: Literal["memory", "redis"] = Field(
+        default="memory",
+        description=(
+            "LangGraph checkpointer backend: 'memory' (per-process, dev/testing) "
+            "or 'redis' (persistent across restarts, shared by replicas)."
+        ),
+    )
+
+    # SSE Streaming Configuration
+    SSE_HEARTBEAT_INTERVAL_SECONDS: float = Field(
+        default=15.0,
+        ge=1.0,
+        description=(
+            "Interval in seconds between SSE keep-alive comments on /analyze/stream "
+            "while the pipeline is silent (long LLM calls), defeating proxy timeouts."
+        ),
+    )
+
     # SQL Execution Configuration
     SQL_EXECUTION_TIMEOUT: float = Field(
         default=10.0,

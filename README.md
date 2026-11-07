@@ -181,7 +181,7 @@ conversational-analytics-agent/
 3. **Semantic Layer & Agent**:
    Populate semantic definitions, configure retrieval, and implement Text-to-SQL generation with AST validation.
 4. **Conversational Extensions (next PRs)**:
-   SSE streaming of graph node transitions, checkpointer-backed multi-turn conversations, clarification interrupts, and visualization/summarization nodes.
+   ~~SSE streaming of graph node transitions~~ (done: `POST /analyze/stream`), ~~checkpointer-backed multi-turn conversations~~ (done: `CHECKPOINTER_BACKEND`, `conversation_id` in/out), follow-ups: clarification interrupts, conversation persistence into `app.conversations` / `app.messages`, and visualization/summarization nodes.
 
 ---
 

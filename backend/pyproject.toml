@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "sqlglot>=25.0.0",
     "langgraph>=1.0.0",
+    "langgraph-checkpoint-redis>=0.6.0",
 ]
 
 [project.optional-dependencies]

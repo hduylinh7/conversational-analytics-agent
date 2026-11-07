@@ -14,6 +14,15 @@ class AnalyzeRequest(BaseModel):
         max_length=2000,
         description="User's natural language analytics question.",
     )
+    conversation_id: str | None = Field(
+        default=None,
+        max_length=100,
+        description=(
+            "Optional conversation thread id for multi-turn follow-ups. Requests "
+            "sharing an id resume the prior conversation state (LLM context and "
+            "repair history). Omit to start a new conversation."
+        ),
+    )
     model: str | None = Field(
         default=None,
         description="Optional LLM model override (e.g. 'google/gemini-2.5-flash').",
@@ -34,6 +43,14 @@ class AnalyzeResponse(BaseModel):
     question: str = Field(
         ...,
         description="Original user question.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description=(
+            "Conversation thread id this turn checkpointed into. Present when the "
+            "request supplied one or a checkpointer is enabled; pass it back on "
+            "follow-up questions to continue the conversation."
+        ),
     )
     success: bool = Field(
         ...,

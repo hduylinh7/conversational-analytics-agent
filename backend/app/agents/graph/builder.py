@@ -1,5 +1,6 @@
 """StateGraph assembly for the conversational analytics workflow."""
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -19,7 +20,10 @@ from app.agents.graph.routing import (
 from app.agents.graph.state import AnalyticsState
 
 
-def build_analytics_graph(nodes: AnalyticsNodes) -> CompiledStateGraph:
+def build_analytics_graph(
+    nodes: AnalyticsNodes,
+    checkpointer: BaseCheckpointSaver | None = None,
+) -> CompiledStateGraph:
     """Compile the retrieval -> generation -> validation -> execution workflow.
 
     Topology:
@@ -30,6 +34,11 @@ def build_analytics_graph(nodes: AnalyticsNodes) -> CompiledStateGraph:
     Guardrail and execution repairs share the same conversation and converge on
     the single ``repair`` node, which routes back through generation and
     validation before any SQL can be executed again.
+
+    When ``checkpointer`` is provided, graph state snapshots are persisted after
+    every superstep, keyed by ``config.configurable.thread_id``. Invocations
+    sharing a thread id resume the prior conversation state, enabling multi-turn
+    follow-up questions.
     """
     graph = StateGraph(AnalyticsState)
 
@@ -90,4 +99,4 @@ def build_analytics_graph(nodes: AnalyticsNodes) -> CompiledStateGraph:
     graph.add_edge(NODE_REPAIR, NODE_GENERATE)
     graph.add_edge(NODE_FINALIZE, END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)

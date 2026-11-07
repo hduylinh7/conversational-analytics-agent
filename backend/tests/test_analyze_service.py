@@ -306,6 +306,7 @@ async def test_endpoint_full_success(async_client: AsyncClient) -> None:
             self,
             question: str,
             *,
+            conversation_id: str | None = None,
             model: str | None = None,
             temperature: float = 0.0,
         ) -> AnalyzeResponse:
@@ -344,6 +345,7 @@ async def test_endpoint_reports_failed_stage(async_client: AsyncClient) -> None:
             self,
             question: str,
             *,
+            conversation_id: str | None = None,
             model: str | None = None,
             temperature: float = 0.0,
         ) -> AnalyzeResponse:

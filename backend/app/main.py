@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.agents.graph.checkpointer import init_checkpointer, shutdown_checkpointer
 from app.api import api_router
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
@@ -19,8 +20,10 @@ logger = get_logger("app.main")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager handling startup and shutdown events."""
     logger.info("Starting up %s (env=%s)...", settings.APP_NAME, settings.APP_ENV)
+    await init_checkpointer()
     yield
     logger.info("Shutting down %s...", settings.APP_NAME)
+    await shutdown_checkpointer()
     await close_postgres()
     await close_redis()
     logger.info("Shutdown completed.")
