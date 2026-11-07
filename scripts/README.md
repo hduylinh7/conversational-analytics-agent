@@ -66,16 +66,27 @@ python scripts/validate_data.py --integrity-only
 Runs the compiled analytics graph offline (fake retriever/executor, real AST guardrails) and prints every node transition in the terminal, including both repair loops.
 
 ```bash
-# Run all scenarios (happy path, guardrail repair, execution repair, budgets, skip, LLM error):
+# Run all scenarios (happy path, guardrail repair, execution repair, combined repair,
+# budgets, non-repairable failure, retrieval skip, LLM error):
 python scripts/demo_langgraph.py
 
 # Run one scenario:
 python scripts/demo_langgraph.py --scenario execution-repair
 
+# Show full SQL candidates, guardrail violations, and repair prompts:
+python scripts/demo_langgraph.py --scenario combined-repair --verbose
+
+# Fail with exit code 1 when a scenario does not match its expected outcome (CI-friendly):
+python scripts/demo_langgraph.py --strict
+
 # List scenarios / print the graph as a Mermaid diagram:
 python scripts/demo_langgraph.py --list
 python scripts/demo_langgraph.py --mermaid
 ```
+
+When multiple scenarios run, the CLI prints a summary table comparing the observed
+result (success/failure, failed stage, repair count, node count, duration) with the
+expected outcome encoded in each scenario.
 
 ## Planned Scripts
 
