@@ -55,7 +55,8 @@ For detailed schema diagrams, column descriptions, and semantic layer:
 * **Database Documentation**: [docs/database.md](docs/database.md)
 * **Semantic Layer Documentation**: [docs/semantic-layer.md](docs/semantic-layer.md)
 * **SQL Guardrails & AST Validation**: [docs/sql-guardrails.md](docs/sql-guardrails.md)
-* **LangGraph Orchestration**: [docs/langgraph-orchestration.md](docs/langgraph-orchestration.md)
+- [docs/langgraph-orchestration.md](docs/langgraph-orchestration.md)
+* **Streamlit Demo UI**: [frontend/streamlit/README.md](frontend/streamlit/README.md)
 
 ---
 
@@ -151,7 +152,7 @@ conversational-analytics-agent/
 │   └── langgraph-orchestration.md # LangGraph state machine, routing, and repair semantics
 
 ├── frontend/                 # Minimal Next.js 15 client placeholder
-├── data/
+│   └── streamlit/            # Streamlit demo UI (see frontend/streamlit/README.md) ├── data/
 │   ├── raw/                  # Target for future Olist CSV files (.gitkeep)
 │   └── processed/            # Target for future processed data (.gitkeep)
 ├── scripts/                  # Utility and operations scripts

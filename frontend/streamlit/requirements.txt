@@ -1,0 +1,7 @@
+# Streamlit demo UI dependencies (install only into the UI environment,
+# e.g. `pip install -r frontend/streamlit/requirements.txt`; the backend keeps
+# its own requirements untouched).
+streamlit>=1.40.0
+httpx>=0.27.0
+pandas>=2.0.0
+altair>=5.0.0
