@@ -89,6 +89,14 @@ class Settings(BaseSettings):
         default=True,
         description="Whether to enforce row limits on all generated SQL queries.",
     )
+    SQL_ENFORCE_INTENT_CHECKS: bool = Field(
+        default=True,
+        description="Whether business intent conformance checks (SQL vs. retrieval contract) run on generated SQL.",
+    )
+    SQL_INTENT_STRICT_MODE: bool = Field(
+        default=False,
+        description="When True, ambiguous intent conformance failures (metric mismatch, missing required table) block execution instead of warning.",
+    )
 
     # LLM & Text-to-SQL Generation Configuration
     OPENROUTER_API_KEY: str | None = Field(

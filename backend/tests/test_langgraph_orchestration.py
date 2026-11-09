@@ -130,7 +130,7 @@ class ValidatorStub:
         self._decide = decide
         self.calls: list[str] = []
 
-    def validate(self, sql: str) -> ValidationResult:
+    def validate(self, sql: str, *, retrieval: RetrievalResult | None = None) -> ValidationResult:
         self.calls.append(sql)
         return self._decide(sql)
 

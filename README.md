@@ -21,7 +21,7 @@ The PostgreSQL database architecture is fully implemented, migrated, and covered
 **Agent Orchestration (LangGraph)**
 
 The end-to-end analytics workflow is now a compiled LangGraph state machine:
-semantic retrieval → Text-to-SQL generation → AST guardrail validation →
+semantic retrieval → Text-to-SQL generation → AST guardrail validation (+ business intent validation) →
 PostgreSQL execution, with guardrail and SQLSTATE repair loops driven by
 conditional edges (budgets and termination included). The `POST /analyze`
 contract is unchanged.

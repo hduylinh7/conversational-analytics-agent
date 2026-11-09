@@ -1,6 +1,7 @@
 """Text-to-SQL generation agent with guardrail validation and self-repair loop."""
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 from app.agents.llm_client import BaseLLMClient, create_llm_client
@@ -73,7 +74,9 @@ class SQLGenerator:
             if max_execution_repair_attempts is not None
             else settings.SQL_MAX_EXECUTION_REPAIR_ATTEMPTS
         )
-        self.validate = validator.validate if validator is not None else validate_sql
+        self.validate: Callable[..., ValidationResult] = (
+            validator.validate if validator is not None else validate_sql
+        )
 
     def _build_llm_kwargs(self, request: SQLGenerationRequest) -> dict[str, Any]:
         """Request-scoped LLM call parameters (temperature and optional model override)."""
@@ -143,7 +146,10 @@ class SQLGenerator:
                 [dict(message) for message in messages], **llm_kwargs
             )
             raw_sql = extract_sql(response_text) or ""
-            validation_result = self.validate(raw_sql)
+            validation_result = self.validate(
+                raw_sql,
+                retrieval=request.retrieval_result,
+            )
 
             if validation_result.is_valid:
                 return self._build_response(
@@ -195,7 +201,10 @@ class SQLGenerator:
                 [dict(message) for message in messages], **llm_kwargs
             )
             raw_sql = extract_sql(response_text) or ""
-            validation_result = self.validate(raw_sql)
+            validation_result = self.validate(
+                raw_sql,
+                retrieval=request.retrieval_result,
+            )
 
             if validation_result.is_valid:
                 return self._build_response(

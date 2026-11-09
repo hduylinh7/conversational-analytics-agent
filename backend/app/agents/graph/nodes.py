@@ -49,7 +49,12 @@ class RetrieverLike(Protocol):
 class ValidatorLike(Protocol):
     """Structural type for the SQL guardrail validator used by the graph."""
 
-    def validate(self, sql: str) -> ValidationResult:
+    def validate(
+        self,
+        sql: str,
+        *,
+        retrieval: RetrievalResult | None = None,
+    ) -> ValidationResult:
         """Validate a candidate SQL statement and return the guardrail report."""
 
 
@@ -102,7 +107,7 @@ class AnalyticsNodes:
         self.retriever = retriever
         self.llm_client = llm_client
         self.executor = executor
-        self.validate: Callable[[str], ValidationResult] = (
+        self.validate: Callable[..., ValidationResult] = (
             validator.validate if validator is not None else validate_sql
         )
         self.max_guardrail_repairs = (
@@ -188,8 +193,16 @@ class AnalyticsNodes:
         }
 
     async def validate_sql(self, state: AnalyticsState) -> dict:
-        """Apply AST guardrails to the current SQL candidate."""
-        result = self.validate(state.get("sql_candidate", ""))
+        """Apply AST guardrails and intent conformance to the current SQL candidate.
+
+        The retrieval result for this turn is forwarded so the validator can
+        check the SQL against the resolved business contract (metric
+        expressions, mandatory filters, join tables).
+        """
+        result = self.validate(
+            state.get("sql_candidate", ""),
+            retrieval=state.get("retrieval"),
+        )
         return {
             "validation_result": result,
             "last_failure": None if result.is_valid else "guardrail",

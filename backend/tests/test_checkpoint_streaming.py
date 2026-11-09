@@ -110,7 +110,7 @@ class FakeRepository:
 class AlwaysValidValidator:
     """Validator stub that accepts every candidate and returns it unchanged."""
 
-    def validate(self, sql: str) -> ValidationResult:
+    def validate(self, sql: str, *, retrieval: RetrievalResult | None = None) -> ValidationResult:
         return ValidationResult(is_valid=True, original_sql=sql, sanitized_sql=sql)
 
 

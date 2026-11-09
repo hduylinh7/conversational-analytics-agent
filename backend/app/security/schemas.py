@@ -27,6 +27,11 @@ class ViolationRule(StrEnum):
     DISALLOWED_OPERATION = "DISALLOWED_OPERATION"
     LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
 
+    # Business intent conformance rules (SQL candidate vs. retrieval contract).
+    INTENT_MISSING_FILTER = "INTENT_MISSING_FILTER"
+    INTENT_METRIC_MISMATCH = "INTENT_METRIC_MISMATCH"
+    INTENT_REQUIRED_TABLE_MISSING = "INTENT_REQUIRED_TABLE_MISSING"
+
 
 class SecurityViolation(BaseModel):
     """Details of a single security or integrity rule violation."""
@@ -131,6 +136,14 @@ class GuardrailConfig(BaseModel):
     allow_ctes: bool = Field(
         default=True,
         description="Whether Common Table Expressions (WITH clauses) are permitted.",
+    )
+    enforce_intent_checks: bool = Field(
+        default=True,
+        description="Whether business intent conformance checks (SQL vs. retrieval contract) run when retrieval context is provided.",
+    )
+    intent_strict_mode: bool = Field(
+        default=False,
+        description="When True, AMBIGUOUS intent conformance failures (METRIC_MISMATCH, REQUIRED_TABLE_MISSING) block execution instead of warning.",
     )
     dialect: str = Field(
         default="postgres",

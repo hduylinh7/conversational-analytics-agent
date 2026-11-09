@@ -6,6 +6,7 @@ from sqlglot.errors import ParseError
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.security.intent_checks import check_business_intent
 from app.security.schemas import (
     GuardrailConfig,
     SecurityViolation,
@@ -15,6 +16,7 @@ from app.security.schemas import (
 )
 from app.semantic.loader import get_semantic_catalog
 from app.semantic.models import SemanticCatalog
+from app.semantic.retrieval.schemas import RetrievalResult
 
 logger = get_logger(__name__)
 
@@ -58,6 +60,8 @@ class SQLGuardrailValidator:
             max_limit=settings.SQL_MAX_LIMIT,
             default_limit=settings.SQL_DEFAULT_LIMIT,
             enforce_limit=settings.SQL_ENFORCE_LIMIT,
+            enforce_intent_checks=settings.SQL_ENFORCE_INTENT_CHECKS,
+            intent_strict_mode=settings.SQL_INTENT_STRICT_MODE,
         )
         self.strict_columns = strict_columns
 
@@ -84,11 +88,20 @@ class SQLGuardrailValidator:
         if self.config.allowed_columns is not None:
             self.allowed_columns = {c.lower() for c in self.config.allowed_columns}
 
-    def validate(self, sql: str) -> ValidationResult:
-        """Inspect and sanitize input SQL query against AST security policies.
+    def validate(
+        self,
+        sql: str,
+        *,
+        retrieval: RetrievalResult | None = None,
+    ) -> ValidationResult:
+        """Inspect and sanitize input SQL query against AST security and intent policies.
 
         Args:
             sql: Raw SQL query string to validate.
+            retrieval: Optional RetrievalResult resolved for the user's question.
+                Providing it enables business intent conformance checks (SQL vs.
+                the metrics, mandatory filters, and join tables that retrieval
+                resolved). Omit to run security-only validation.
 
         Returns:
             ValidationResult with validation flag, sanitized SQL, violations, and metadata.
@@ -289,7 +302,21 @@ class SQLGuardrailValidator:
                             )
                         )
 
-        # 8. LIMIT Enforcement & AST Manipulation
+        # 8. Business intent conformance (candidate SQL vs. retrieval contract)
+        if retrieval is not None and self.config.enforce_intent_checks:
+            for violation in check_business_intent(
+                ast,
+                retrieval,
+                tables_referenced=tables_referenced,
+                default_schema=self.config.default_schema,
+            ):
+                if self.config.intent_strict_mode or violation.severity == ViolationSeverity.HIGH:
+                    violations.append(violation)
+                else:
+                    # Ambiguous failures degrade to non-blocking warnings.
+                    warnings.append(f"[{violation.rule}] {violation.message}")
+
+        # 9. LIMIT Enforcement & AST Manipulation
         original_limit: int | None = None
         applied_limit: int | None = None
 
@@ -359,7 +386,7 @@ class SQLGuardrailValidator:
                     f"No LIMIT clause detected. Automatically injected LIMIT {self.config.default_limit}."
                 )
 
-        # 9. Format Sanitized SQL
+        # 10. Format Sanitized SQL
         sanitized_sql: str | None = None
         is_valid = len(violations) == 0
 
@@ -424,6 +451,7 @@ def validate_sql(
     sql: str,
     config: GuardrailConfig | None = None,
     catalog: SemanticCatalog | None = None,
+    retrieval: RetrievalResult | None = None,
 ) -> ValidationResult:
     """Convenience functional interface to validate and sanitize a SQL query.
 
@@ -431,9 +459,10 @@ def validate_sql(
         sql: Raw SQL query string.
         config: Optional custom GuardrailConfig.
         catalog: Optional custom SemanticCatalog.
+        retrieval: Optional RetrievalResult enabling intent conformance checks.
 
     Returns:
         ValidationResult.
     """
     validator = get_sql_validator(config=config, catalog=catalog)
-    return validator.validate(sql)
+    return validator.validate(sql, retrieval=retrieval)

@@ -106,7 +106,7 @@ class ValidatorStub:
         self._decide = decide
         self.calls: list[str] = []
 
-    def validate(self, sql: str) -> ValidationResult:
+    def validate(self, sql: str, *, retrieval: RetrievalResult | None = None) -> ValidationResult:
         self.calls.append(sql)
         return self._decide(sql)
 
@@ -114,14 +114,14 @@ class ValidatorStub:
 class AlwaysValidValidator:
     """Validator stub that accepts every candidate and returns it unchanged."""
 
-    def validate(self, sql: str) -> ValidationResult:
+    def validate(self, sql: str, *, retrieval: RetrievalResult | None = None) -> ValidationResult:
         return ValidationResult(is_valid=True, original_sql=sql, sanitized_sql=sql)
 
 
 class RejectingValidator:
     """Validator stub that rejects every candidate."""
 
-    def validate(self, sql: str) -> ValidationResult:
+    def validate(self, sql: str, *, retrieval: RetrievalResult | None = None) -> ValidationResult:
         return ValidationResult(is_valid=False, original_sql=sql)
 
 

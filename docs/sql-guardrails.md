@@ -4,6 +4,12 @@ The **SQL Guardrails & AST Validation Module** ([`backend/app/security/`](file:/
 
 It uses Abstract Syntax Tree (AST) inspection via `sqlglot` to enforce read-only semantics, validate catalog entity access, intercept dangerous functions, prevent SQL injection, and clamp or inject row limits without executing the query against PostgreSQL.
 
+It also performs **Business Intent Validation** (§6): when the caller passes the
+`RetrievalResult` resolved for the user's question, the guardrail additionally
+checks that the candidate SQL conforms to the business contract the semantic
+layer resolved — metric expressions verbatim, mandatory filters present, and
+the resolved join-plan tables referenced — before execution.
+
 ---
 
 ## 1. Architecture Overview
@@ -136,12 +142,63 @@ result = validator.validate(sql)
 
 ---
 
-## 6. Running Tests
+## 6. Business Intent Validation (SQL vs. Retrieval Contract)
+
+Security checks alone cannot catch *semantically wrong but syntactically
+valid* SQL (e.g. the LLM dropping a mandatory `order_status = 'delivered'`
+filter). [`security/intent_checks.py`](file:///d:/conversational-analytics-agent/backend/app/security/intent_checks.py)
+closes that gap by comparing the candidate SQL AST against the `RetrievalResult`
+for the current turn — the same metadata the generation prompt was built from.
+
+### A. Intent Conformance Rules
+
+| Rule Code | Severity | Check |
+| :--- | :--- | :--- |
+| `INTENT_MISSING_FILTER` | HIGH (blocks) | Every mandatory filter of the selected metrics appears as a predicate in the candidate SQL (matched by column + operator + literal value; `IN ('x')` ≡ `= 'x'`, LIKE/ILIKE interchangeable; matched anywhere in the AST — including inside CTEs built for fan-out pre-aggregation). |
+| `INTENT_METRIC_MISMATCH` | MEDIUM | No aggregate in the SQL canonically equals a selected metric's `expression` (compared after stripping aliases/table qualifiers via sqlglot). Catches `COUNT(o.order_id)` vs. the required `COUNT(DISTINCT o.order_id)`, `AVG` instead of `SUM`, etc. |
+| `INTENT_REQUIRED_TABLE_MISSING` | MEDIUM | A table required by the selected metrics/dimensions/resolved join path is absent from `tables_referenced`. |
+
+### B. Severity Semantics
+
+- `INTENT_MISSING_FILTER` is a deterministic failure and **always blocks** (repairs through the existing guardrail repair loop).
+- The other two rules are ambiguous by nature (LLMs may rename aliases, wrap CTEs, restructure equivalently), so by default they **degrade to warnings** (`result.warnings`) and are surfaced in the response. Set `intent_strict_mode=True` (or `SQL_INTENT_STRICT_MODE` env) to promote them to blocking violations.
+- Fail-open: unparseable metric/filter definitions are **ignored** (logged as warnings) rather than guessed at, so broken metadata never causes an infinite repair loop.
+
+### C. Activation
+
+Intent checks only run when the caller forwards the retrieval context:
+
+```python
+result = validator.validate(sql, retrieval=retrieval_result)   # full checks
+result = validator.validate(sql)                               # security-only (unchanged)
+```
+
+LangGraph wiring passes `state["retrieval"]` automatically
+([`graph/nodes.py`](file:///d:/conversational-analytics-agent/backend/app/agents/graph/nodes.py));
+`SQLGenerator.generate*` passes `request.retrieval_result`.
+
+### D. Configuration
+
+| Setting (env) | Default | Effect |
+| :--- | :--- | :--- |
+| `SQL_ENFORCE_INTENT_CHECKS` / `GuardrailConfig.enforce_intent_checks` | `True` | Run intent conformance when retrieval context is provided. |
+| `SQL_INTENT_STRICT_MODE` / `GuardrailConfig.intent_strict_mode` | `False` | Promote ambiguous (MEDIUM) intent failures to blocking violations. |
+
+---
+
+## 7. Running Tests
 
 The test suite covers valid queries, limit injection, limit clamping, mutating queries, injection attempts, system schemas, dangerous functions, syntax errors, and CTE handling:
 
 ```bash
 cd backend
 pytest tests/test_sql_guardrails.py -v
+```
+
+Business intent validation has its own suite (rule behavior, alias tolerance, strict-mode promotion, fail-open behavior, backward compatibility without retrieval context):
+
+```bash
+cd backend
+pytest tests/test_intent_guardrails.py -v
 ```
 

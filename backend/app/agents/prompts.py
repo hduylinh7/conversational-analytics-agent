@@ -84,8 +84,9 @@ The previous SQL query failed security and ast guardrail checks \
 ### Instruction
 {extra_instruction}
 Rewrite the query fixing ONLY the reported issues while preserving the \
-original business intent. Reply with the corrected single query in a \
-```sql fenced block.
+original business intent. Respect the semantic context: use every selected \
+metric expression verbatim and apply every mandatory filter. Reply with the \
+corrected single query in a ```sql fenced block.
 """
 
 
