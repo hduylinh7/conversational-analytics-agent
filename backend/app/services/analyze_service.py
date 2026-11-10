@@ -33,10 +33,13 @@ from app.agents.graph.state import AnalyticsState
 from app.agents.llm_client import BaseLLMClient, create_llm_client
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.db.redis import get_redis_client
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.schemas import ExecutionResult
 from app.schemas.analyze import AnalyzeResponse
 from app.semantic.retrieval.retriever import SemanticRetriever
+from app.services.cache_service import CacheService
+from app.services.semantic_cache import SemanticCacheService, create_semantic_cache
 
 logger = get_logger(__name__)
 
@@ -60,6 +63,8 @@ class AnalyzeService:
         max_guardrail_repairs: int | None = None,
         max_execution_repairs: int | None = None,
         checkpointer: BaseCheckpointSaver | None = None,
+        cache: CacheService | None = None,
+        semantic_cache: SemanticCacheService | None = None,
     ) -> None:
         """Build the graph with injectable components for testing."""
         settings = get_settings()
@@ -71,6 +76,13 @@ class AnalyzeService:
         # Default to the process-wide checkpointer created during app startup;
         # ``None`` keeps runs stateless (unit tests, offline scripts).
         self.checkpointer = checkpointer if checkpointer is not None else get_checkpointer()
+        # Default Redis cache wired to the shared connection pool; explicit
+        # ``None`` arguments keep the graph cache-free (tests, offline scripts).
+        if cache is None:
+            cache = CacheService(get_redis_client())
+        self.cache = cache
+        # Question-similarity cache (requires OPENAI_API_KEY; ``None`` disables it).
+        self.semantic_cache = semantic_cache or create_semantic_cache()
 
         self.nodes = AnalyticsNodes(
             retriever=self.retriever,
@@ -80,6 +92,8 @@ class AnalyzeService:
             max_guardrail_repairs=max_guardrail_repairs,
             max_execution_repairs=max_execution_repairs,
             default_model=settings.LLM_MODEL,
+            cache=self.cache,
+            semantic_cache=self.semantic_cache,
         )
         self.graph = build_analytics_graph(self.nodes, checkpointer=self.checkpointer)
 
@@ -116,6 +130,10 @@ class AnalyzeService:
             "last_failure": None,
             "failure_stage": None,
             "failure_reason": None,
+            "prompt_cache_key": "",
+            "cache_hit": False,
+            "is_first_turn": True,
+            "semantic_cache_vector": [],
         }
 
     def _request_config(self, conversation_id: str | None) -> tuple[str | None, RunnableConfig]:

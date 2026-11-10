@@ -40,6 +40,12 @@ class AnalyticsState(TypedDict, total=False):
     validation_result: ValidationResult | None
     execution: ExecutionResult | None
 
+    # Caching (prompt digest resolved in the generate node; committed on validation)
+    prompt_cache_key: str
+    cache_hit: bool
+    is_first_turn: bool
+    semantic_cache_vector: list[float]
+
     # Repair accounting
     repair_history: list[RepairStep]
     guardrail_repairs: int

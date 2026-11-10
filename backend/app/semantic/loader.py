@@ -137,6 +137,25 @@ def load_semantic_layer(directory_path: Path | str | None = None) -> SemanticCat
 
 _cached_semantic_catalog: SemanticCatalog | None = None
 _cached_semantic_directory: Path | None = None
+def get_semantic_version(directory_path: Path | str | None = None) -> str:
+    """Return a digest of all semantic layer YAML contents.
+
+    Used to invalidate cache keys when the semantic layer changes: any edit to
+    ``data_sources.yaml``, ``dimensions.yaml``, or ``metrics.yaml`` produces a
+    new version string. Computed per call (three small file reads) so edits
+    take effect immediately.
+    """
+    import hashlib
+
+    target_dir = Path(directory_path) if directory_path else get_default_semantic_directory()
+    digest = hashlib.sha256()
+    for name in ("data_sources.yaml", "dimensions.yaml", "metrics.yaml"):
+        path = target_dir / name
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(name.encode())
+    return digest.hexdigest()
 
 
 def get_semantic_catalog(

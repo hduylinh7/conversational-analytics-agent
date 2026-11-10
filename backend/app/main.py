@@ -8,6 +8,7 @@ from app.agents.graph.checkpointer import init_checkpointer, shutdown_checkpoint
 from app.api import api_router
 from app.core.config import get_settings
 from app.core.logging import get_logger, setup_logging
+from app.core.rate_limit import RateLimitMiddleware, create_rate_limit_limiter
 from app.db.postgres import close_postgres
 from app.db.redis import close_redis
 
@@ -57,6 +58,11 @@ def create_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Redis token-bucket rate limiting on /analyze endpoints (fail-open)
+    rate_limit_limiter = create_rate_limit_limiter()
+    if rate_limit_limiter is not None:
+        application.add_middleware(RateLimitMiddleware, limiter=rate_limit_limiter)
 
     # Register API routers
     application.include_router(api_router)

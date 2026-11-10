@@ -99,6 +99,13 @@ class AnalyzeResponse(BaseModel):
         default_factory=list,
         description="Combined retrieval, guardrail, and execution warnings.",
     )
+    cache_hit: bool = Field(
+        default=False,
+        description=(
+            "True when SQL or the execution result was served from the Redis cache "
+            "instead of a fresh LLM call / PostgreSQL query."
+        ),
+    )
     execution: ExecutionResult | None = Field(
         default=None,
         description="Query execution report with rows, columns, and metrics if reached.",

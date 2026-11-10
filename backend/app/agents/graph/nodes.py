@@ -24,6 +24,7 @@ from app.repositories.schemas import ExecutionResult, ExecutionStatus
 from app.schemas.analyze import AnalyzeResponse
 from app.security.schemas import ValidationResult
 from app.security.validator import validate_sql
+from app.semantic.loader import get_semantic_version
 from app.semantic.retrieval.schemas import RetrievalResult, RetrievalStatus
 
 logger = get_logger(__name__)
@@ -84,6 +85,58 @@ def retrieval_failure_reason(retrieval: RetrievalResult) -> str | None:
     return None
 
 
+class CacheLike(Protocol):
+    """Structural type of the optional Redis cache used by the graph nodes."""
+
+    def prompt_key(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        model: str | None,
+        temperature: float,
+    ) -> str:
+        """Build the prompt cache key for the current generation inputs."""
+
+    async def get_prompt(self, key: str) -> str | None:
+        """Return the cached LLM response text or ``None`` on miss/failure."""
+
+    async def commit_prompt(self, key: str, response_text: str) -> None:
+        """Best-effort store of a validated LLM response."""
+
+    async def get_result(self, sql: str) -> ExecutionResult | None:
+        """Return the cached execution report for SQL or ``None``."""
+
+    async def commit_result(self, sql: str, execution: ExecutionResult) -> None:
+        """Best-effort store of a successful execution report."""
+
+
+class SemanticCacheLike(Protocol):
+    """Structural type of the optional question-similarity cache."""
+
+    async def embed(self, question: str) -> list[float] | None:
+        """Embed a question, or ``None`` when the provider is unavailable."""
+
+    async def find_by_vector(
+        self,
+        vector: list[float],
+        *,
+        model: str | None,
+        semantic_version: str,
+    ) -> str | None:
+        """Return validated SQL of a sufficiently similar cached question."""
+
+    async def store_with_vector(
+        self,
+        vector: list[float],
+        *,
+        question: str,
+        model: str | None,
+        semantic_version: str,
+        sql: str,
+    ) -> None:
+        """Best-effort store of a validated SQL with its question embedding."""
+
+
 class AnalyticsNodes:
     """Node callables backing the analytics StateGraph.
 
@@ -101,6 +154,8 @@ class AnalyticsNodes:
         max_guardrail_repairs: int | None = None,
         max_execution_repairs: int | None = None,
         default_model: str | None = None,
+        cache: CacheLike | None = None,
+        semantic_cache: SemanticCacheLike | None = None,
     ) -> None:
         """Wire the graph nodes to existing pipeline components and budgets."""
         settings = get_settings()
@@ -121,6 +176,11 @@ class AnalyticsNodes:
             else settings.SQL_MAX_EXECUTION_REPAIR_ATTEMPTS
         )
         self.default_model = default_model or settings.LLM_MODEL
+        # Optional Redis-backed caches (prompt + SQL result). ``None`` disables
+        # caching entirely (unit tests, offline runs).
+        self.cache: CacheLike | None = cache if settings.CACHE_ENABLED else None
+        # Optional question-similarity cache for first-turn questions.
+        self.semantic_cache: SemanticCacheLike | None = semantic_cache
 
     # ------------------------------------------------------------------
     # Nodes
@@ -138,7 +198,6 @@ class AnalyticsNodes:
         retrieval = self.retriever.retrieve(question)
         failure = retrieval_failure_reason(retrieval)
         prior_messages = list(state.get("messages", []))[-MAX_CARRIED_MESSAGES:]
-
         update: dict = {
             "retrieval": retrieval,
             "retrieval_failure": failure,
@@ -148,6 +207,9 @@ class AnalyticsNodes:
             "execution_repairs": 0,
             "last_failure": None,
             "model_used": state.get("model") or self.default_model,
+            # Semantic cache only replays fresh-turn questions: follow-ups such as
+            # "and by month?" depend on checkpointed history, not question text.
+            "is_first_turn": not prior_messages,
         }
         if failure is None:
             request = SQLGenerationRequest(
@@ -163,16 +225,71 @@ class AnalyticsNodes:
         return update
 
     async def generate(self, state: AnalyticsState) -> dict:
-        """Ask the LLM for a SQL candidate using the shared repair conversation."""
-        messages = state.get("messages", [])
-        kwargs: dict = {"temperature": state.get("temperature", 0.0)}
+        """Ask the LLM for a SQL candidate using the shared repair conversation.
+
+        When the prompt cache contains the response for this exact conversation
+        (question, retrieved context, repair feedback, multi-turn history plus
+        model parameters and the semantic layer version), the cached text is
+        replayed instead of an LLM call. Cache writes are deferred to the
+        ``validate_sql`` node so only guardrail-validated SQL becomes cached.
+        """
+        messages = [dict(message) for message in state.get("messages", [])]
+        model = state.get("model")
+        temperature = state.get("temperature", 0.0)
+
+        prompt_cache_key: str | None = None
+        if self.cache is not None:
+            prompt_cache_key = self.cache.prompt_key(
+                messages, model=model, temperature=temperature
+            )
+            cached_response = await self.cache.get_prompt(prompt_cache_key)
+            if cached_response is not None:
+                logger.debug("Prompt cache hit: %s", prompt_cache_key)
+                return {
+                    "generation_error": None,
+                    "llm_response": cached_response,
+                    "sql_candidate": extract_sql(cached_response) or "",
+                    "messages": [
+                        *messages,
+                        {"role": "assistant", "content": cached_response},
+                    ],
+                    "prompt_cache_key": prompt_cache_key,
+                    "cache_hit": True,
+                }
+
+        # Question-similarity cache for fresh-turn questions (multi-turn
+        # follow-ups are excluded: they depend on conversation history).
+        semantic_vector: list[float] | None = None
+        if self.semantic_cache is not None and state.get("is_first_turn"):
+            question = state.get("question", "")
+            semantic_vector = await self.semantic_cache.embed(question)
+            if semantic_vector:
+                cached_sql = await self.semantic_cache.find_by_vector(
+                    semantic_vector,
+                    model=model,
+                    semantic_version=get_semantic_version(),
+                )
+                if cached_sql is not None:
+                    logger.info("Semantic cache replaying validated SQL.")
+                    response_text = f"```sql\n{cached_sql}\n```"
+                    return {
+                        "generation_error": None,
+                        "llm_response": response_text,
+                        "sql_candidate": cached_sql,
+                        "messages": [
+                            *messages,
+                            {"role": "assistant", "content": response_text},
+                        ],
+                        "prompt_cache_key": prompt_cache_key or "",
+                        "cache_hit": True,
+                    }
+
+        kwargs: dict = {"temperature": temperature}
         if state.get("model"):
             kwargs["model"] = state["model"]
 
         try:
-            response_text = await self.llm_client.generate_async(
-                [dict(message) for message in messages], **kwargs
-            )
+            response_text = await self.llm_client.generate_async(messages, **kwargs)
         except LLMError as exc:
             reason = (
                 "SQL generation failed due to an LLM provider error: "
@@ -181,16 +298,24 @@ class AnalyticsNodes:
             logger.error("LLM provider error: %s", exc)
             return {"generation_error": reason}
 
-        raw_sql = extract_sql(response_text) or ""
-        return {
+        update: dict = {
             "generation_error": None,
             "llm_response": response_text,
-            "sql_candidate": raw_sql,
+            "sql_candidate": extract_sql(response_text) or "",
             "messages": [
                 *messages,
                 {"role": "assistant", "content": response_text},
             ],
+            "cache_hit": False,
         }
+        # The key is parked in state; validate_sql commits it after guardrails pass.
+        if prompt_cache_key is not None:
+            update["prompt_cache_key"] = prompt_cache_key
+        # Park the question embedding so validate_sql can store validated SQL
+        # into the semantic cache (first-turn real-generation path only).
+        if semantic_vector:
+            update["semantic_cache_vector"] = semantic_vector
+        return update
 
     async def validate_sql(self, state: AnalyticsState) -> dict:
         """Apply AST guardrails and intent conformance to the current SQL candidate.
@@ -198,29 +323,79 @@ class AnalyticsNodes:
         The retrieval result for this turn is forwarded so the validator can
         check the SQL against the resolved business contract (metric
         expressions, mandatory filters, join tables).
+
+        When validation succeeds, the LLM response that produced this candidate
+        is committed to the prompt cache (if present and not a cache replay),
+        guaranteeing cached entries correspond to guardrail-clean SQL only.
         """
         result = self.validate(
             state.get("sql_candidate", ""),
             retrieval=state.get("retrieval"),
         )
-        return {
+        update: dict = {
             "validation_result": result,
             "last_failure": None if result.is_valid else "guardrail",
         }
+        if (
+            result.is_valid
+            and self.cache is not None
+            and state.get("prompt_cache_key")
+            and not state.get("cache_hit")
+        ):
+            response_text = state.get("llm_response", "")
+            if response_text:
+                await self.cache.commit_prompt(state["prompt_cache_key"], response_text)
+                logger.debug("Prompt cache committed: %s", state["prompt_cache_key"])
+        # Commit validated SQL into the semantic cache (same only-validated-SQL
+        # rule as the prompt cache; cache replays are never re-stored).
+        if (
+            result.is_valid
+            and self.semantic_cache is not None
+            and state.get("semantic_cache_vector")
+            and not state.get("cache_hit")
+        ):
+            await self.semantic_cache.store_with_vector(
+                state["semantic_cache_vector"],
+                question=state.get("question", ""),
+                model=state.get("model"),
+                semantic_version=get_semantic_version(),
+                sql=result.sanitized_sql or state.get("sql_candidate", ""),
+            )
+            logger.info("Semantic cache stored validated SQL.")
+        return update
 
     async def execute(self, state: AnalyticsState) -> dict:
-        """Execute validated SQL against PostgreSQL through the analytics repository."""
+        """Execute validated SQL against PostgreSQL through the analytics repository.
+
+        Successful executions are cached by sanitized SQL digest; identical
+        queries within the result TTL skip PostgreSQL and flag ``cache_hit``.
+        """
         validation = state.get("validation_result")
         sql = (
             validation.sanitized_sql
             if validation is not None and validation.sanitized_sql
             else state.get("sql_candidate", "")
         )
-        execution = await self.executor(sql)
-        repairable_failure = not execution.is_success and execution.is_repairable
+
+        execution: ExecutionResult | None = None
+        cached_hit = False
+        if self.cache is not None:
+            execution = await self.cache.get_result(sql)
+            cached_hit = execution is not None
+            if cached_hit:
+                logger.debug("Result cache hit for SQL digest.")
+
+        if execution is None:
+            execution = await self.executor(sql)
+            if self.cache is not None and execution.is_success:
+                await self.cache.commit_result(sql, execution)
+
         return {
             "execution": execution,
-            "last_failure": "execution" if repairable_failure else None,
+            "last_failure": (
+                "execution" if not execution.is_success and execution.is_repairable else None
+            ),
+            "cache_hit": bool(state.get("cache_hit")) or cached_hit,
         }
 
     async def repair(self, state: AnalyticsState) -> dict:
@@ -389,5 +564,6 @@ class AnalyticsNodes:
             repair_attempts=len(state.get("repair_history", [])),
             model_used=state.get("model_used") or self.default_model,
             warnings=warnings,
+            cache_hit=state.get("cache_hit", False),
             execution=execution,
         )

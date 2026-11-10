@@ -163,6 +163,64 @@ class Settings(BaseSettings):
         ),
     )
 
+    # Redis Caching Configuration (prompt cache + SQL result cache)
+    CACHE_ENABLED: bool = Field(
+        default=True,
+        description="Master switch for Redis-backed prompt cache and SQL result cache.",
+    )
+    PROMPT_CACHE_TTL_SECONDS: int = Field(
+        default=3600,
+        ge=1,
+        description="TTL in seconds for cached (validated) generated SQL keyed by prompt digest.",
+    )
+    RESULT_CACHE_TTL_SECONDS: int = Field(
+        default=900,
+        ge=1,
+        description="TTL in seconds for cached successful SQL execution results.",
+    )
+
+    # Semantic Cache Configuration (question-embedding similarity cache)
+    SEMANTIC_CACHE_ENABLED: bool = Field(
+        default=True,
+        description=(
+            "Enable question-embedding semantic cache: embed first-turn questions and "
+            "replay validated SQL for near-identical questions. Requires OPENAI_API_KEY; "
+            "degrades silently to exact-match caching when unavailable."
+        ),
+    )
+    SEMANTIC_CACHE_THRESHOLD: float = Field(
+        default=0.95,
+        ge=0.5,
+        le=1.0,
+        description="Minimum raw cosine similarity between question embeddings to replay cached SQL.",
+    )
+    SEMANTIC_CACHE_TTL_SECONDS: int = Field(
+        default=86400,
+        ge=1,
+        description="TTL in seconds for semantic cache entries.",
+    )
+    SEMANTIC_CACHE_MAX_ENTRIES: int = Field(
+        default=500,
+        ge=1,
+        description="Maximum semantic cache entries kept per (model, semantic version); oldest evicted.",
+    )
+
+    # Rate Limiting Configuration (Redis token bucket on /analyze endpoints)
+    RATE_LIMIT_ENABLED: bool = Field(
+        default=True,
+        description="Whether Redis-backed token bucket rate limiting middleware is active.",
+    )
+    RATE_LIMIT_RPM: int = Field(
+        default=30,
+        ge=1,
+        description="Sustained requests per minute allowed per client IP on /analyze endpoints.",
+    )
+    RATE_LIMIT_BURST: int = Field(
+        default=10,
+        ge=1,
+        description="Max burst size (token bucket capacity) permitted per client IP.",
+    )
+
     # SQL Execution Configuration
     SQL_EXECUTION_TIMEOUT: float = Field(
         default=10.0,

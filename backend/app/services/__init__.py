@@ -9,5 +9,6 @@ Intended future responsibilities:
 """
 
 from app.services.analyze_service import AnalyzeService, get_analyze_service
+from app.services.cache_service import CacheService
 
-__all__: list[str] = ["AnalyzeService", "get_analyze_service"]
+__all__: list[str] = ["AnalyzeService", "get_analyze_service", "CacheService"]
