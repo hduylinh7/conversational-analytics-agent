@@ -61,7 +61,24 @@ python scripts/validate_data.py --profile-only
 python scripts/validate_data.py --integrity-only
 ```
 
-### 5. LangGraph Visual Demo (`demo_langgraph.py`)
+### 5. Golden Result Materializer (`materialize_golden_results.py`)
+
+Executes each generation/e2e case's golden SQL once against PostgreSQL (through the guardrail-sanitizing `AnalyticsRepository`) and stores result sets in `eval/golden_results/<case_id>.json` for later execution-accuracy comparison.
+
+```bash
+# Materialize missing golden result sets:
+python scripts/materialize_golden_results.py --layers generation e2e
+
+# Overwrite all and prove golden SQL determinism (re-runs + compares):
+python scripts/materialize_golden_results.py --force --validate-ex
+
+# Single case:
+python scripts/materialize_golden_results.py --case gen_rev_by_state --force
+```
+
+Returns exit code 1 on failed executions or unstable (non-deterministic) golden SQL.
+
+### 6. LangGraph Visual Demo (`demo_langgraph.py`)
 
 Runs the compiled analytics graph offline (fake retriever/executor, real AST guardrails) and prints every node transition in the terminal, including both repair loops.
 
@@ -91,5 +108,4 @@ expected outcome encoded in each scenario.
 ## Planned Scripts
 
 - Database seeders (mock app sessions)
-- Evaluation benchmark runners
 

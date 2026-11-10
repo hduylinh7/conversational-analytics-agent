@@ -1,0 +1,15 @@
+{
+  "caseId": "gen_delivered_orders",
+  "goldenSql": "SELECT\n  COUNT(DISTINCT business.orders.order_id) AS delivered_order_count\nFROM business.orders\nWHERE\n  business.orders.order_status = 'delivered'\nLIMIT 100",
+  "columns": [
+    "delivered_order_count"
+  ],
+  "rows": [
+    [
+      96478
+    ]
+  ],
+  "rowCount": 1,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.386419+00:00"
+}

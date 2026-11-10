@@ -1,0 +1,121 @@
+# Semantic Retrieval evaluation cases.
+#
+# Two expectation modes:
+#   - selection: every listed metric/dimension must appear among the executed
+#     names (extra selections are reported as precision loss but do not fail).
+#   - skip: the retriever must refuse the question (nothing selected).
+#
+# Tags: complexity (easy/medium/hard) and functional category.
+cases:
+  - id: rev_by_state
+    tags: [revenue, group_by, easy]
+    questions:
+      - "Tổng doanh thu theo bang khách hàng là bao nhiêu?"
+      - "Total revenue by customer state"
+    retrieval:
+      metrics: [total_revenue]
+      dimensions: [customer_state]
+
+  - id: rev_by_category
+    tags: [revenue, group_by, easy]
+    questions:
+      - "Tổng doanh thu theo danh mục sản phẩm là bao nhiêu?"
+      - "Total merchandise revenue grouped by product category"
+    retrieval:
+      metrics: [total_revenue]
+      dimensions: [product_category]
+
+  - id: orders_by_month
+    tags: [order_count, group_by, time_series, medium]
+    questions:
+      - "Số lượng đơn hàng theo tháng?"
+      - "Number of orders per month"
+    retrieval:
+      metrics: [order_count]
+      dimensions: [order_date]
+
+  - id: payment_by_type
+    tags: [payment, group_by, easy]
+    questions:
+      - "Tổng tiền thanh toán theo phương thức thanh toán là bao nhiêu?"
+      - "Total payment value by payment method"
+    retrieval:
+      metrics: [total_payment_value]
+      dimensions: [payment_type]
+
+  - id: delivered_orders
+    tags: [order_count, filter, easy]
+    questions:
+      - "Số đơn giao thành công là bao nhiêu?"
+      - "How many orders were delivered successfully?"
+    retrieval:
+      metrics: [delivered_order_count]
+
+  - id: canceled_orders
+    tags: [order_count, filter, easy]
+    questions:
+      - "Số đơn bị hủy là bao nhiêu?"
+      - "How many orders were canceled?"
+    retrieval:
+      metrics: [canceled_order_count]
+
+  - id: aov_overall
+    tags: [aov, aggregate, medium]
+    questions:
+      - "Giá trị đơn hàng trung bình là bao nhiêu?"
+      - "What is the average order value?"
+    retrieval:
+      metrics: [average_order_value]
+
+  - id: freight_by_category
+    tags: [freight, group_by, medium]
+    questions:
+      - "Phí vận chuyển trung bình theo danh mục sản phẩm?"
+      - "Average shipping cost per product category"
+    retrieval:
+      metrics: [average_freight_value]
+      dimensions: [product_category]
+
+  - id: items_sold_2017
+    tags: [items_sold, filter, easy]
+    questions:
+      - "Số lượng sản phẩm đã bán trong năm 2017 là bao nhiêu?"
+      - "How many items were sold in 2017?"
+    retrieval:
+      metrics: [items_sold_count]
+
+  - id: customer_count
+    tags: [customer, aggregate, easy]
+    questions:
+      - "Tổng số khách hàng là bao nhiêu?"
+      - "How many unique customers are there?"
+    retrieval:
+      metrics: [customer_count]
+
+  - id: skip_greeting_vi
+    tags: [skip, non_analytics, easy]
+    questions:
+      - "Xin chào, bạn là ai vậy?"
+    retrieval:
+      skip: true
+
+  - id: skip_offtopic_en
+    tags: [skip, non_analytics, medium]
+    questions:
+      - "What is your return policy for damaged goods?"
+    retrieval:
+      skip: true
+
+  - id: skip_general_knowledge_vi
+    tags: [skip, non_analytics, medium]
+    questions:
+      - "Ai là CEO của công ty Olist?"
+    retrieval:
+      skip: true
+
+  - id: skip_company_policy_en
+    tags: [skip, non_analytics, medium]
+    questions:
+      - "Where is the Olist headquarters located?"
+    retrieval:
+      skip: true

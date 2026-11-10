@@ -1,0 +1,15 @@
+{
+  "caseId": "gen_items_sold_2017",
+  "goldenSql": "SELECT\n  COUNT(oi.order_item_id) AS items_sold_count\nFROM business.order_items AS oi\nJOIN business.orders AS o\n  ON o.order_id = oi.order_id\nWHERE\n  CAST(EXTRACT(YEAR FROM o.order_purchase_timestamp) AS INT) = 2017\nLIMIT 100",
+  "columns": [
+    "items_sold_count"
+  ],
+  "rows": [
+    [
+      50864
+    ]
+  ],
+  "rowCount": 1,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.690853+00:00"
+}

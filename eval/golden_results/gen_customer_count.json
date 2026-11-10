@@ -1,0 +1,15 @@
+{
+  "caseId": "gen_customer_count",
+  "goldenSql": "SELECT\n  COUNT(DISTINCT business.customers.customer_unique_id) AS customer_count\nFROM business.customers\nLIMIT 100",
+  "columns": [
+    "customer_count"
+  ],
+  "rows": [
+    [
+      96096
+    ]
+  ],
+  "rowCount": 1,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:31.151079+00:00"
+}

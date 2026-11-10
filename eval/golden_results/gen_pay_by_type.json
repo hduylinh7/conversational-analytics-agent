@@ -1,0 +1,33 @@
+{
+  "caseId": "gen_pay_by_type",
+  "goldenSql": "SELECT\n  pm.payment_type,\n  SUM(pm.payment_value) AS total_payment_value\nFROM business.payments AS pm\nGROUP BY\n  pm.payment_type\nLIMIT 100",
+  "columns": [
+    "payment_type",
+    "total_payment_value"
+  ],
+  "rows": [
+    [
+      "not_defined",
+      0.0
+    ],
+    [
+      "boleto",
+      2869361.27
+    ],
+    [
+      "debit_card",
+      217989.79
+    ],
+    [
+      "voucher",
+      379436.87
+    ],
+    [
+      "credit_card",
+      12542084.19
+    ]
+  ],
+  "rowCount": 5,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.417558+00:00"
+}

@@ -1,0 +1,50 @@
+# End-to-end graph evaluation cases.
+#
+# Expectations:
+#   success - the pipeline returns executed rows; when a golden result is
+#             materialized (eval/golden_results/<id>.json) rows must match.
+#   skip    - the graph must refuse at the retrieval stage.
+cases:
+  - id: e2e_rev_by_state
+    tags: [revenue, group_by, smoke]
+    questions:
+      - "Tổng doanh thu theo bang khách hàng là bao nhiêu?"
+      - "Total revenue by customer state"
+    golden_sql: |
+      SELECT c.customer_state, SUM(oi.price) AS total_revenue
+      FROM business.order_items oi
+      JOIN business.orders o ON o.order_id = oi.order_id
+      JOIN business.customers c ON c.customer_id = o.customer_id
+      GROUP BY c.customer_state
+
+  - id: e2e_delivered_orders
+    tags: [order_count, filter]
+    questions:
+      - "Số đơn giao thành công là bao nhiêu?"
+    golden_sql: |
+      SELECT COUNT(DISTINCT business.orders.order_id) AS delivered_order_count
+      FROM business.orders
+      WHERE business.orders.order_status = 'delivered'
+
+  - id: e2e_orders_by_month
+    tags: [order_count, group_by, time_series]
+    questions:
+      - "Số lượng đơn hàng theo tháng là bao nhiêu?"
+    golden_sql: |
+      SELECT DATE_TRUNC('month', business.orders.order_purchase_timestamp) AS order_month,
+             COUNT(DISTINCT business.orders.order_id) AS order_count
+      FROM business.orders
+      GROUP BY DATE_TRUNC('month', business.orders.order_purchase_timestamp)
+
+  - id: e2e_skip_greeting_vi
+    tags: [skip, non_analytics]
+    questions:
+      - "Xin chào, bạn là ai vậy?"
+    skip: true
+
+  - id: e2e_skip_offtopic_en
+    tags: [skip, non_analytics]
+    questions:
+      - "What is your favorite pizza place in Sao Paulo?"
+    skip: true
+

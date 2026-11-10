@@ -199,4 +199,9 @@ ruff check .
 
 # Static type checking
 mypy app tests
+
+# Evaluation regressions (deterministic layers; full usage: eval/README.md)
+# From repository root:
+pytest tests/eval -q
+python eval/run_eval.py --layers retrieval guardrail
 ```

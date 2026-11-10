@@ -1,0 +1,473 @@
+{
+  "meta": {
+    "layer": "retrieval",
+    "timestamp": "2026-11-10T07:11:09.236880+00:00",
+    "llm_provider": "groq",
+    "llm_model": "openai/gpt-oss-120b",
+    "model_override": null,
+    "cases_dir": "D:\\conversational-analytics-agent\\eval\\cases",
+    "golden_dir": "D:\\conversational-analytics-agent\\eval\\golden_results",
+    "suite": null
+  },
+  "summary": {
+    "layer": "retrieval",
+    "total": 24,
+    "passed": 24,
+    "failed": 0,
+    "accuracy": 1.0,
+    "mean_recall": 1.0,
+    "mean_precision": 0.8,
+    "selection_cases": 20,
+    "skip_cases": 4
+  },
+  "results": [
+    {
+      "case_id": "rev_by_state",
+      "question": "Tổng doanh thu theo bang khách hàng là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "total_revenue"
+      ],
+      "selected_dimensions": [
+        "customer_state"
+      ],
+      "expected_metrics": [
+        "total_revenue"
+      ],
+      "expected_dimensions": [
+        "customer_state"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "rev_by_state",
+      "question": "Total revenue by customer state",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "total_revenue"
+      ],
+      "selected_dimensions": [
+        "customer_state"
+      ],
+      "expected_metrics": [
+        "total_revenue"
+      ],
+      "expected_dimensions": [
+        "customer_state"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "rev_by_category",
+      "question": "Tổng doanh thu theo danh mục sản phẩm là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "total_revenue"
+      ],
+      "selected_dimensions": [
+        "product_category"
+      ],
+      "expected_metrics": [
+        "total_revenue"
+      ],
+      "expected_dimensions": [
+        "product_category"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "rev_by_category",
+      "question": "Total merchandise revenue grouped by product category",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "total_revenue"
+      ],
+      "selected_dimensions": [
+        "product_category"
+      ],
+      "expected_metrics": [
+        "total_revenue"
+      ],
+      "expected_dimensions": [
+        "product_category"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "orders_by_month",
+      "question": "Số lượng đơn hàng theo tháng?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "order_count"
+      ],
+      "selected_dimensions": [
+        "order_date"
+      ],
+      "expected_metrics": [
+        "order_count"
+      ],
+      "expected_dimensions": [
+        "order_date"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "orders_by_month",
+      "question": "Number of orders per month",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "order_count"
+      ],
+      "selected_dimensions": [
+        "order_date"
+      ],
+      "expected_metrics": [
+        "order_count"
+      ],
+      "expected_dimensions": [
+        "order_date"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "payment_by_type",
+      "question": "Tổng tiền thanh toán theo phương thức thanh toán là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "total_payment_value"
+      ],
+      "selected_dimensions": [
+        "payment_type"
+      ],
+      "expected_metrics": [
+        "total_payment_value"
+      ],
+      "expected_dimensions": [
+        "payment_type"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "payment_by_type",
+      "question": "Total payment value by payment method",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "total_payment_value"
+      ],
+      "selected_dimensions": [
+        "payment_type"
+      ],
+      "expected_metrics": [
+        "total_payment_value"
+      ],
+      "expected_dimensions": [
+        "payment_type"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "delivered_orders",
+      "question": "Số đơn giao thành công là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.5,
+      "selected_metrics": [
+        "delivered_order_count"
+      ],
+      "selected_dimensions": [
+        "order_delivered_date"
+      ],
+      "expected_metrics": [
+        "delivered_order_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "delivered_orders",
+      "question": "How many orders were delivered successfully?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.3333333333333333,
+      "selected_metrics": [
+        "order_count",
+        "delivered_order_count"
+      ],
+      "selected_dimensions": [
+        "order_status"
+      ],
+      "expected_metrics": [
+        "delivered_order_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "canceled_orders",
+      "question": "Số đơn bị hủy là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "canceled_order_count"
+      ],
+      "selected_dimensions": [],
+      "expected_metrics": [
+        "canceled_order_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "canceled_orders",
+      "question": "How many orders were canceled?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.3333333333333333,
+      "selected_metrics": [
+        "order_count",
+        "canceled_order_count"
+      ],
+      "selected_dimensions": [
+        "order_status"
+      ],
+      "expected_metrics": [
+        "canceled_order_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "aov_overall",
+      "question": "Giá trị đơn hàng trung bình là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "average_order_value"
+      ],
+      "selected_dimensions": [],
+      "expected_metrics": [
+        "average_order_value"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "aov_overall",
+      "question": "What is the average order value?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "average_order_value"
+      ],
+      "selected_dimensions": [],
+      "expected_metrics": [
+        "average_order_value"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "freight_by_category",
+      "question": "Phí vận chuyển trung bình theo danh mục sản phẩm?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.6666666666666666,
+      "selected_metrics": [
+        "total_freight",
+        "average_freight_value"
+      ],
+      "selected_dimensions": [
+        "product_category"
+      ],
+      "expected_metrics": [
+        "average_freight_value"
+      ],
+      "expected_dimensions": [
+        "product_category"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "freight_by_category",
+      "question": "Average shipping cost per product category",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.6666666666666666,
+      "selected_metrics": [
+        "total_freight",
+        "average_freight_value"
+      ],
+      "selected_dimensions": [
+        "product_category"
+      ],
+      "expected_metrics": [
+        "average_freight_value"
+      ],
+      "expected_dimensions": [
+        "product_category"
+      ],
+      "detail": null
+    },
+    {
+      "case_id": "items_sold_2017",
+      "question": "Số lượng sản phẩm đã bán trong năm 2017 là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.5,
+      "selected_metrics": [
+        "items_sold_count"
+      ],
+      "selected_dimensions": [
+        "order_date"
+      ],
+      "expected_metrics": [
+        "items_sold_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "items_sold_2017",
+      "question": "How many items were sold in 2017?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.5,
+      "selected_metrics": [
+        "items_sold_count"
+      ],
+      "selected_dimensions": [
+        "order_date"
+      ],
+      "expected_metrics": [
+        "items_sold_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "customer_count",
+      "question": "Tổng số khách hàng là bao nhiêu?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 0.5,
+      "selected_metrics": [
+        "customer_count"
+      ],
+      "selected_dimensions": [
+        "customer_state"
+      ],
+      "expected_metrics": [
+        "customer_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "customer_count",
+      "question": "How many unique customers are there?",
+      "passed": true,
+      "mode": "expected_selection",
+      "recall": 1.0,
+      "precision": 1.0,
+      "selected_metrics": [
+        "customer_count"
+      ],
+      "selected_dimensions": [],
+      "expected_metrics": [
+        "customer_count"
+      ],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "skip_greeting_vi",
+      "question": "Xin chào, bạn là ai vậy?",
+      "passed": true,
+      "mode": "expected_skip",
+      "recall": 0.0,
+      "precision": null,
+      "selected_metrics": [],
+      "selected_dimensions": [],
+      "expected_metrics": [],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "skip_offtopic_en",
+      "question": "What is your return policy for damaged goods?",
+      "passed": true,
+      "mode": "expected_skip",
+      "recall": 0.0,
+      "precision": null,
+      "selected_metrics": [],
+      "selected_dimensions": [],
+      "expected_metrics": [],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "skip_general_knowledge_vi",
+      "question": "Ai là CEO của công ty Olist?",
+      "passed": true,
+      "mode": "expected_skip",
+      "recall": 0.0,
+      "precision": null,
+      "selected_metrics": [],
+      "selected_dimensions": [],
+      "expected_metrics": [],
+      "expected_dimensions": [],
+      "detail": null
+    },
+    {
+      "case_id": "skip_company_policy_en",
+      "question": "Where is the Olist headquarters located?",
+      "passed": true,
+      "mode": "expected_skip",
+      "recall": 0.0,
+      "precision": null,
+      "selected_metrics": [],
+      "selected_dimensions": [],
+      "expected_metrics": [],
+      "expected_dimensions": [],
+      "detail": null
+    }
+  ]
+}

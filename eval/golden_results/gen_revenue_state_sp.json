@@ -1,0 +1,15 @@
+{
+  "caseId": "gen_revenue_state_sp",
+  "goldenSql": "SELECT\n  SUM(oi.price) AS total_revenue\nFROM business.order_items AS oi\nJOIN business.orders AS o\n  ON o.order_id = oi.order_id\nJOIN business.customers AS c\n  ON c.customer_id = o.customer_id\nWHERE\n  c.customer_state = 'SP'\nLIMIT 100",
+  "columns": [
+    "total_revenue"
+  ],
+  "rows": [
+    [
+      5202955.05
+    ]
+  ],
+  "rowCount": 1,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.764279+00:00"
+}

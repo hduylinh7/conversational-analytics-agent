@@ -1,0 +1,137 @@
+{
+  "meta": {
+    "layer": "e2e",
+    "timestamp": "2026-11-10T07:11:09.236880+00:00",
+    "llm_provider": "groq",
+    "llm_model": "openai/gpt-oss-120b",
+    "model_override": null,
+    "cases_dir": "D:\\conversational-analytics-agent\\eval\\cases",
+    "golden_dir": "D:\\conversational-analytics-agent\\eval\\golden_results",
+    "suite": null
+  },
+  "summary": {
+    "layer": "e2e",
+    "total": 6,
+    "passed": 5,
+    "failed": 1,
+    "accuracy": 0.8333333333333334,
+    "skip_cases": 2,
+    "wall_latency_ms": {
+      "p50": 1436.5111999941291,
+      "p95": 4770.006635013851
+    },
+    "avg_repairs": 0
+  },
+  "results": [
+    {
+      "case_id": "e2e_rev_by_state",
+      "question": "Tổng doanh thu theo bang khách hàng là bao nhiêu?",
+      "passed": true,
+      "expectation": "success",
+      "success": true,
+      "failed_stage": null,
+      "repair_attempts": 0,
+      "comparison": {
+        "passed": true,
+        "mode": "EXACT",
+        "expected_rows": 27,
+        "actual_rows": 27,
+        "arity_mismatch": false,
+        "mismatched_examples": [],
+        "detail": null
+      },
+      "row_count": 27,
+      "wall_ms": 1290.97269999329,
+      "detail": null
+    },
+    {
+      "case_id": "e2e_rev_by_state",
+      "question": "Total revenue by customer state",
+      "passed": true,
+      "expectation": "success",
+      "success": true,
+      "failed_stage": null,
+      "repair_attempts": 0,
+      "comparison": {
+        "passed": true,
+        "mode": "EXACT",
+        "expected_rows": 27,
+        "actual_rows": 27,
+        "arity_mismatch": false,
+        "mismatched_examples": [],
+        "detail": null
+      },
+      "row_count": 27,
+      "wall_ms": 3564.109800005099,
+      "detail": null
+    },
+    {
+      "case_id": "e2e_delivered_orders",
+      "question": "Số đơn giao thành công là bao nhiêu?",
+      "passed": false,
+      "expectation": "success",
+      "success": true,
+      "failed_stage": null,
+      "repair_attempts": 0,
+      "comparison": {
+        "passed": false,
+        "mode": null,
+        "expected_rows": 1,
+        "actual_rows": 100,
+        "arity_mismatch": false,
+        "mismatched_examples": [],
+        "detail": "Row count mismatch: expected 1, got 100."
+      },
+      "row_count": 100,
+      "wall_ms": 1582.0496999949683,
+      "detail": "Row count mismatch: expected 1, got 100."
+    },
+    {
+      "case_id": "e2e_orders_by_month",
+      "question": "Số lượng đơn hàng theo tháng là bao nhiêu?",
+      "passed": true,
+      "expectation": "success",
+      "success": true,
+      "failed_stage": null,
+      "repair_attempts": 0,
+      "comparison": {
+        "passed": true,
+        "mode": "EXACT",
+        "expected_rows": 25,
+        "actual_rows": 25,
+        "arity_mismatch": false,
+        "mismatched_examples": [],
+        "detail": null
+      },
+      "row_count": 25,
+      "wall_ms": 1708.8838999916334,
+      "detail": null
+    },
+    {
+      "case_id": "e2e_skip_greeting_vi",
+      "question": "Xin chào, bạn là ai vậy?",
+      "passed": true,
+      "expectation": "skip",
+      "success": false,
+      "failed_stage": "retrieval",
+      "repair_attempts": 0,
+      "comparison": null,
+      "row_count": 0,
+      "wall_ms": 29.00900000531692,
+      "detail": null
+    },
+    {
+      "case_id": "e2e_skip_offtopic_en",
+      "question": "What is your favorite pizza place in Sao Paulo?",
+      "passed": true,
+      "expectation": "skip",
+      "success": false,
+      "failed_stage": "retrieval",
+      "repair_attempts": 0,
+      "comparison": null,
+      "row_count": 0,
+      "wall_ms": 28.537600010167807,
+      "detail": null
+    }
+  ]
+}

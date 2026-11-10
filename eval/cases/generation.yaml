@@ -1,0 +1,172 @@
+# Text-to-SQL generation evaluation cases.
+#
+# Expectations (mutually exclusive):
+#   result_match - generated SQL must reproduce the materialized golden result
+#                  in eval/golden_results/<id>.json (execution accuracy).
+#   valid_sql    - a guardrail-valid SQL candidate must be produced.
+#   skip         - retrieval must refuse the question (no LLM call happens).
+#
+# Golden SQL conventions (must match the semantic layer):
+#   - COUNT(DISTINCT orders.order_id) for order counts
+#   - customer_unique_id for customer counts
+#   - DATE_TRUNC('month', ...) as documented in dimensions.yaml
+#   - never join business.payments with business.order_items (fan-out)
+#
+# Suite tags: smoke (small fast set), full (default: everything).
+cases:
+  - id: gen_rev_by_category
+    tags: [revenue, group_by, easy, smoke]
+    questions:
+      - "Tổng doanh thu theo danh mục sản phẩm là bao nhiêu?"
+      - "Total merchandise revenue grouped by product category"
+    result_match: true
+    golden_sql: |
+      SELECT p.product_category_name, SUM(oi.price) AS total_revenue
+      FROM business.order_items oi
+      LEFT JOIN business.products p ON p.product_id = oi.product_id
+      GROUP BY p.product_category_name
+
+  - id: gen_rev_by_state
+    tags: [revenue, group_by, easy, smoke]
+    questions:
+      - "Tổng doanh thu theo bang khách hàng là bao nhiêu?"
+      - "Total revenue by customer state"
+    result_match: true
+    golden_sql: |
+      SELECT c.customer_state, SUM(oi.price) AS total_revenue
+      FROM business.order_items oi
+      JOIN business.orders o ON o.order_id = oi.order_id
+      JOIN business.customers c ON c.customer_id = o.customer_id
+      GROUP BY c.customer_state
+
+  - id: gen_orders_by_month
+    tags: [order_count, group_by, time_series, medium, smoke]
+    questions:
+      - "Số lượng đơn hàng theo tháng là bao nhiêu?"
+      - "Number of orders per month"
+    result_match: true
+    golden_sql: |
+      SELECT DATE_TRUNC('month', business.orders.order_purchase_timestamp) AS order_month,
+             COUNT(DISTINCT business.orders.order_id) AS order_count
+      FROM business.orders
+      GROUP BY DATE_TRUNC('month', business.orders.order_purchase_timestamp)
+
+  - id: gen_aov_overall
+    tags: [aov, aggregate, medium, smoke]
+    questions:
+      - "Giá trị đơn hàng trung bình là bao nhiêu?"
+      - "What is the average order value?"
+    result_match: true
+    golden_sql: |
+      SELECT SUM(oi.price) / NULLIF(COUNT(DISTINCT oi.order_id), 0) AS average_order_value
+      FROM business.order_items oi
+
+  - id: gen_delivered_orders
+    tags: [order_count, filter, easy, smoke]
+    questions:
+      - "Số đơn giao thành công là bao nhiêu?"
+      - "How many orders were delivered successfully?"
+    result_match: true
+    golden_sql: |
+      SELECT COUNT(DISTINCT business.orders.order_id) AS delivered_order_count
+      FROM business.orders
+      WHERE business.orders.order_status = 'delivered'
+
+  - id: gen_pay_by_type
+    tags: [payment, group_by, easy]
+    questions:
+      - "Tổng tiền thanh toán theo phương thức thanh toán là bao nhiêu?"
+      - "Total payment value by payment method"
+    result_match: true
+    golden_sql: |
+      SELECT pm.payment_type, SUM(pm.payment_value) AS total_payment_value
+      FROM business.payments pm
+      GROUP BY pm.payment_type
+
+  - id: gen_freight_by_category
+    tags: [freight, group_by, medium]
+    questions:
+      - "Phí vận chuyển trung bình theo danh mục sản phẩm?"
+      - "Average shipping cost per product category"
+    result_match: true
+    golden_sql: |
+      SELECT p.product_category_name, AVG(oi.freight_value) AS average_freight_value
+      FROM business.order_items oi
+      LEFT JOIN business.products p ON p.product_id = oi.product_id
+      GROUP BY p.product_category_name
+
+  - id: gen_items_sold_2017
+    tags: [items_sold, filter, medium]
+    questions:
+      - "Số lượng sản phẩm đã bán trong năm 2017 là bao nhiêu?"
+      - "How many items were sold in 2017?"
+    result_match: true
+    golden_sql: |
+      SELECT COUNT(oi.order_item_id) AS items_sold_count
+      FROM business.order_items oi
+      JOIN business.orders o ON o.order_id = oi.order_id
+      WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp)::INTEGER = 2017
+
+  - id: gen_revenue_state_sp
+    tags: [revenue, filter, easy]
+    questions:
+      - "Doanh thu của bang SP là bao nhiêu?"
+      - "What is the total revenue for customer state SP?"
+    result_match: true
+    golden_sql: |
+      SELECT SUM(oi.price) AS total_revenue
+      FROM business.order_items oi
+      JOIN business.orders o ON o.order_id = oi.order_id
+      JOIN business.customers c ON c.customer_id = o.customer_id
+      WHERE c.customer_state = 'SP'
+
+  - id: gen_top5_categories_gross
+    tags: [revenue, top_n, hard]
+    questions:
+      - "Top 5 danh mục sản phẩm có doanh thu gộp cao nhất?"
+      - "Top 5 product categories by gross revenue including freight"
+    result_match: true
+    golden_sql: |
+      SELECT p.product_category_name AS product_category,
+             SUM(oi.price + oi.freight_value) AS gross_revenue
+      FROM business.order_items oi
+      JOIN business.products p ON p.product_id = oi.product_id
+      GROUP BY p.product_category_name
+      ORDER BY gross_revenue DESC
+      LIMIT 5
+
+  - id: gen_canceled_by_state
+    tags: [order_count, filter, group_by, hard]
+    questions:
+      - "Số đơn bị hủy theo bang khách hàng?"
+      - "Number of canceled orders by customer state"
+    result_match: true
+    golden_sql: |
+      SELECT c.customer_state,
+             COUNT(DISTINCT o.order_id) AS canceled_order_count
+      FROM business.orders o
+      JOIN business.customers c ON c.customer_id = o.customer_id
+      WHERE o.order_status = 'canceled'
+      GROUP BY c.customer_state
+
+  - id: gen_customer_count
+    tags: [customer, aggregate, easy]
+    questions:
+      - "Tổng số khách hàng là bao nhiêu?"
+      - "How many unique customers are there?"
+    result_match: true
+    golden_sql: |
+      SELECT COUNT(DISTINCT business.customers.customer_unique_id) AS customer_count
+      FROM business.customers
+
+  - id: gen_skip_greeting_vi
+    tags: [skip, non_analytics, easy, smoke]
+    questions:
+      - "Xin chào, bạn là ai vậy?"
+    skip: true
+
+  - id: gen_skip_ceo_en
+    tags: [skip, non_analytics, medium]
+    questions:
+      - "Who is the CEO of Olist?"
+    skip: true

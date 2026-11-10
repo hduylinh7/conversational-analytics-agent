@@ -1,0 +1,33 @@
+{
+  "caseId": "gen_top5_categories_gross",
+  "goldenSql": "SELECT\n  p.product_category_name AS product_category,\n  SUM(oi.price + oi.freight_value) AS gross_revenue\nFROM business.order_items AS oi\nJOIN business.products AS p\n  ON p.product_id = oi.product_id\nGROUP BY\n  p.product_category_name\nORDER BY\n  gross_revenue DESC\nLIMIT 5",
+  "columns": [
+    "product_category",
+    "gross_revenue"
+  ],
+  "rows": [
+    [
+      "beleza_saude",
+      1441248.07
+    ],
+    [
+      "relogios_presentes",
+      1305541.61
+    ],
+    [
+      "cama_mesa_banho",
+      1241681.72
+    ],
+    [
+      "esporte_lazer",
+      1156656.48
+    ],
+    [
+      "informatica_acessorios",
+      1059272.4
+    ]
+  ],
+  "rowCount": 5,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.838940+00:00"
+}

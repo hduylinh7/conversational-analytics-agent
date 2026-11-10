@@ -1,0 +1,105 @@
+{
+  "caseId": "gen_canceled_by_state",
+  "goldenSql": "SELECT\n  c.customer_state,\n  COUNT(DISTINCT o.order_id) AS canceled_order_count\nFROM business.orders AS o\nJOIN business.customers AS c\n  ON c.customer_id = o.customer_id\nWHERE\n  o.order_status = 'canceled'\nGROUP BY\n  c.customer_state\nLIMIT 100",
+  "columns": [
+    "customer_state",
+    "canceled_order_count"
+  ],
+  "rows": [
+    [
+      "AL",
+      1
+    ],
+    [
+      "BA",
+      16
+    ],
+    [
+      "CE",
+      7
+    ],
+    [
+      "DF",
+      7
+    ],
+    [
+      "ES",
+      9
+    ],
+    [
+      "GO",
+      13
+    ],
+    [
+      "MA",
+      4
+    ],
+    [
+      "MG",
+      64
+    ],
+    [
+      "MS",
+      2
+    ],
+    [
+      "MT",
+      2
+    ],
+    [
+      "PA",
+      4
+    ],
+    [
+      "PB",
+      2
+    ],
+    [
+      "PE",
+      5
+    ],
+    [
+      "PI",
+      4
+    ],
+    [
+      "PR",
+      22
+    ],
+    [
+      "RJ",
+      86
+    ],
+    [
+      "RO",
+      3
+    ],
+    [
+      "RR",
+      1
+    ],
+    [
+      "RS",
+      25
+    ],
+    [
+      "SC",
+      19
+    ],
+    [
+      "SE",
+      1
+    ],
+    [
+      "SP",
+      327
+    ],
+    [
+      "TO",
+      1
+    ]
+  ],
+  "rowCount": 23,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.856437+00:00"
+}

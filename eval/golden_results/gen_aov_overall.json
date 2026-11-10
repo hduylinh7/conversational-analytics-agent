@@ -1,0 +1,15 @@
+{
+  "caseId": "gen_aov_overall",
+  "goldenSql": "SELECT\n  SUM(oi.price) / NULLIF(COUNT(DISTINCT oi.order_id), 0) AS average_order_value\nFROM business.order_items AS oi\nLIMIT 100",
+  "columns": [
+    "average_order_value"
+  ],
+  "rows": [
+    [
+      137.75407637889444
+    ]
+  ],
+  "rowCount": 1,
+  "truncated": false,
+  "materializedAt": "2026-11-09T15:19:30.062104+00:00"
+}

