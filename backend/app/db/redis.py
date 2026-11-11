@@ -57,12 +57,12 @@ async def check_redis_connection(timeout_seconds: float = 2.0) -> bool:
                 await client.set(test_key, test_value, ex=10)
                 retrieved = await client.get(test_key)
                 await client.delete(test_key)
-
+                print("Redis health check successful.")
                 return retrieved == test_value
             finally:
                 await client.aclose()
     except Exception as exc:
-        logger.warning("Redis connection check failed: %s", exc)
+        logger.exception("Redis connection check failed: %r", exc)
         return False
 
 
