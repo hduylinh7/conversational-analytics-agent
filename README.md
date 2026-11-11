@@ -1,110 +1,176 @@
 # Conversational Analytics Agent
 
-A production-oriented conversational AI analytics system designed to enable analysts to query business data using natural language, with robust schema retrieval, SQL generation, AST guardrails, and visualization.
+A production-oriented conversational AI analytics system that lets analysts query business data in natural language (Vietnamese & English) and get back validated SQL, executed results, and visualizations — powered by a semantic layer, hybrid semantic retrieval, AST-based SQL guardrails, and LangGraph orchestration with self-repair loops.
+
+**Stack**: FastAPI (async Python 3.12) · LangGraph · PostgreSQL 16 · Redis 7 · sqlglot / Streamlit
 
 ---
 
-## Current Status
+## Features
 
-**Database Foundation (Phase 1)**
-
-The PostgreSQL database architecture is fully implemented, migrated, and covered with automated tests.
-
-* **PostgreSQL Schemas (3)**: `business`, `app`, `semantic`
-* **Total Tables (13)**:
-  * `business` (5): `customers`, `orders`, `order_items`, `products`, `payments`
-  * `app` (5): `users`, `conversations`, `messages`, `query_executions`, `saved_queries`
-  * `semantic` (3): `metric_definitions`, `dimension_definitions`, `data_sources`
-* **Migrations**: Alembic async migration suite supporting upgrade, downgrade, and replay.
-* **Constraints & Indexes**: Composite PKs, foreign keys, unique constraints, check constraints, and performance indexes.
-
-**Agent Orchestration (LangGraph)**
-
-The end-to-end analytics workflow is now a compiled LangGraph state machine:
-semantic retrieval → Text-to-SQL generation → AST guardrail validation (+ business intent validation) →
-PostgreSQL execution, with guardrail and SQLSTATE repair loops driven by
-conditional edges (budgets and termination included). The `POST /analyze`
-contract is unchanged.
-
-> ⚠️ **Important Notice on Data Ingestion**:
->
-> The Olist Brazilian E-Commerce dataset has **NOT** been downloaded or ingested yet.
-> * No CSV files are present under `data/raw/`.
-> * The business tables currently contain **no production records**.
-> * In the next phase, the user will manually download the Olist dataset and place only the required CSV files in `data/raw/`.
+- **Semantic Layer** — YAML-defined metrics (12), dimensions (10), and data sources (5 tables, 8 relationships) with bilingual (vi/en) synonyms, packed as Pydantic-validated application code.
+- **Hybrid Semantic Retrieval** — keyword engine (Vietnamese diacritic stripping, synonyms, stemming, n-grams) combined with optional OpenAI-compatible embeddings; join-path resolution with fan-out / chasm-trap detection.
+- **Text-to-SQL Generation** — provider-agnostic LLM client (OpenRouter / Groq / OpenAI / deterministic Mock for offline runs) with schema-qualified, SELECT-only prompting.
+- **AST SQL Guardrails** — sqlglot-based validation: statement-type allowlist, mutation/dangerous-function denial, table allowlist from the semantic catalog, LIMIT clamping/injection, and business-intent conformance checks.
+- **LangGraph Orchestration** — compiled state machine `retrieve → generate → validate → execute → finalize` with guardrail-repair (default 3 attempts) and execution-repair (default 2 attempts) loops driven by conditional edges and budgets.
+- **Multi-turn Conversations** — checkpointer-backed threads (`memory` or `redis`), `conversation_id` in/out on every request.
+- **SSE Streaming** — `POST /analyze/stream` emits live graph node transitions (`retrieve`, `generate`, `validate`, `execute`, `repair`) with keep-alive heartbeats.
+- **Caching & Protection** — Redis prompt cache (validated LLM output), SQL result cache, embedding-based semantic cache (question→SQL replay, re-validated before execution), token-bucket rate limiting (fail-open), execution timeout and row caps.
 
 ---
 
 ## Architecture
 
-The system follows a clean modular monolith architecture with clear package boundaries:
-
 ```text
-Frontend (Next.js / App Router)
-   │
-   ▼
-FastAPI Backend (Async Python 3.12)
-   │
-   ├── PostgreSQL (Schemas: business, app, semantic)
-   │
-   └── Redis (Connection cache & session store)
+Streamlit demo UI / Next.js client
+        │  HTTP + SSE
+        ▼
+FastAPI Backend (async Python 3.12)
+   ├── Rate limiting (Redis token bucket, fail-open)
+   ├── LangGraph state machine
+   │     retrieve ─► generate ─► validate ─► execute ─► finalize
+   │                     ▲          │(violations)│(repairable)
+   │                     └── repair ◄────────────┘
+   ├── Semantic layer (YAML: metrics / dimensions / data sources)
+   ├── Hybrid retrieval (keyword + optional embeddings)
+   ├── SQL guardrails (sqlglot AST + intent checks)
+   ├── PostgreSQL 16  (schemas: business, app, semantic)
+   └── Redis 7        (checkpointer, prompt/result/semantic caches, rate limit)
 ```
 
-For detailed schema diagrams, column descriptions, and semantic layer:
-* **Entity-Relationship Diagram**: [docs/erd.mmd](docs/erd.mmd)
-* **Database Documentation**: [docs/database.md](docs/database.md)
-* **Semantic Layer Documentation**: [docs/semantic-layer.md](docs/semantic-layer.md)
-* **SQL Guardrails & AST Validation**: [docs/sql-guardrails.md](docs/sql-guardrails.md)
-- [docs/langgraph-orchestration.md](docs/langgraph-orchestration.md)
-* **Streamlit Demo UI**: [frontend/streamlit/README.md](frontend/streamlit/README.md)
+Deeper documentation:
+
+| Topic | Doc |
+|---|---|
+| Database schema & ER diagram | [docs/database.md](docs/database.md) · [docs/erd.mmd](docs/erd.mmd) |
+| Semantic layer | [docs/semantic-layer.md](docs/semantic-layer.md) |
+| Semantic retrieval | [docs/semantic-retrieval.md](docs/semantic-retrieval.md) |
+| SQL guardrails & AST validation | [docs/sql-guardrails.md](docs/sql-guardrails.md) |
+| LangGraph orchestration | [docs/langgraph-orchestration.md](docs/langgraph-orchestration.md) |
+| Data quality & profiling | [docs/data-quality.md](docs/data-quality.md) |
+| Streamlit demo UI | [frontend/streamlit/README.md](frontend/streamlit/README.md) |
 
 ---
 
-## Database Setup & Workflows
+## API Endpoints
 
-### 1. Start PostgreSQL
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness probe |
+| `GET` | `/health/ready` | Readiness probe (PostgreSQL/Redis dependencies; 503 when down) |
+| `POST` | `/analyze` | Ask a business question; returns SQL, explanation, execution results, diagnostics |
+| `POST` | `/analyze/stream` | Same contract, streamed as Server-Sent Events (`start` → `node` → `result` → `done`) |
 
-Start PostgreSQL (and Redis) using Docker Compose:
+`AnalyzeRequest`: `question` (3–2000 chars), `conversation_id` (optional — enables multi-turn), `model` (optional override), `temperature` (0–1).
+
+`AnalyzeResponse` highlights: `success`, `failed_stage` (`retrieval` | `generation` | `execution`), `final_sql`, `raw_sql`, `explanation`, `repair_attempts`, `confidence_score`, `model_used`, `warnings`, `cache_hit`, `execution` (columns/rows/row_count/duration).
+
+---
+
+## Quickstart
+
+### 1. Prerequisites
+
+- Python 3.12+
+- Docker & Docker Compose
+- An LLM API key (OpenRouter, Groq, or OpenAI) — or use `LLM_PROVIDER=mock` for offline runs
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env: set LLM_PROVIDER, the matching API key, POSTGRES_*, REDIS_*, etc.
+```
+
+> ⚠️ The Olist CSV dataset is **not committed to git** (gitignored). Download the
+> [Olist Brazilian E-Commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce)
+> and place these 5 files in `data/raw/`:
+> `olist_customers_dataset.csv`, `olist_orders_dataset.csv`, `olist_order_items_dataset.csv`,
+> `olist_products_dataset.csv`, `olist_order_payments_dataset.csv`.
+
+### 3. Start infrastructure
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-The database container will start with:
-* Database: `analytics`
-* User: `analytics`
-* Password: `analytics`
-* Host Port: `5433` (or `5432` if available; configured in `.env`)
+Defaults: database `analytics`, user `analytics`, password `analytics`, host port `5433` (configurable via `.env`).
 
-### 2. Run Alembic Migrations
-
-Apply database migrations to create the schemas and all 13 tables:
+### 4. Apply migrations
 
 ```bash
-# From repository root:
-alembic upgrade head
-
-# Or from backend directory:
-cd backend
-alembic upgrade head
+alembic upgrade head        # from repo root (or: cd backend && alembic upgrade head)
+alembic downgrade base      # to roll back
 ```
 
-To roll back migrations:
+Creates 3 schemas (`business`, `app`, `semantic`) and 13 tables.
+
+### 5. Ingest the Olist dataset
+
 ```bash
-alembic downgrade base
+python scripts/ingest_data.py                 # full ingestion into business.*
+python scripts/ingest_data.py --dry-run       # validate without writing
+python scripts/ingest_data.py --truncate      # re-ingest from scratch
 ```
 
-### 3. Run Database & Application Tests
-
-Run the full automated test suite (including schema, constraint, relationship, and health tests):
+Optional data-quality gates (writes `reports/data_profile.json`, `reports/integrity_report.json`):
 
 ```bash
-# From repository root:
-pytest backend/tests -v
+python scripts/validate_data.py
+```
 
-# Or from backend directory:
+### 6. Run the backend
+
+```bash
 cd backend
-pytest -v
+uvicorn app.main:app --reload          # http://localhost:8000 (docs at /docs)
+```
+
+Or run the full stack (PostgreSQL + Redis + backend + Next.js frontend):
+
+```bash
+docker compose up -d
+```
+
+### 7. Try the demo UI
+
+```bash
+pip install -r frontend/streamlit/requirements.txt
+streamlit run frontend/streamlit/streamlit_app.py
+```
+
+The Streamlit app is the full conversational demo: chat with multi-turn `conversation_id`, live SSE node-timeline with per-stage timings, generated-SQL viewer, result tables, Altair charts, and cache-hit indicators.
+The Next.js app under `frontend/` is a lightweight backend health/status dashboard.
+
+---
+
+## Evaluation
+
+Four benchmark layers (cases in `eval/cases/*.yaml`, bilingual vi/en; golden results in `eval/golden_results/`):
+
+| Layer | Scope | Needs LLM/DB |
+|---|---|---|
+| `retrieval` | Semantic retriever fidelity | No (CI-safe) |
+| `guardrail` | Guardrail verdicts (unsafe-allows vs false-denies) | No (CI-safe) |
+| `generation` | Text-to-SQL: valid rate + execution accuracy vs golden | Yes |
+| `e2e` | Full graph outcome accuracy + execution accuracy | Yes |
+
+```bash
+python eval/run_eval.py --layers retrieval guardrail                        # CI-safe layers
+python eval/run_eval.py --layers generation --suite smoke                   # single layer
+python eval/run_eval.py --layers e2e --model-override google/gemini-2.5-flash
+python eval/run_eval.py --layers retrieval guardrail --markdown             # + markdown report
+```
+
+Reports are written to `reports/eval/`. See [eval/README.md](eval/README.md) for the full flag reference.
+
+### Offline demos
+
+```bash
+python scripts/demo_langgraph.py --scenario revenue_by_category   # offline graph walkthrough (--mermaid for diagram)
+python scripts/demo_retrieval.py
+python scripts/demo_guardrails.py
+python scripts/demo_sql_generation.py
 ```
 
 ---
@@ -113,95 +179,84 @@ pytest -v
 
 ```text
 conversational-analytics-agent/
-├── backend/                  # FastAPI asynchronous backend application
-│   ├── alembic/              # Alembic migration scripts and environment
-│   │   ├── versions/         # Migration versions (0001_initial_schema.py)
-│   │   ├── env.py            # Async migration runner across schemas
-│   │   └── script.py.mako    # Migration template
+├── backend/
+│   ├── alembic/                  # Async migration suite (0001_initial_schema.py)
 │   ├── app/
-│   │   ├── agents/           # Text-to-SQL generation + LangGraph orchestration
-│   │   │   ├── graph/        # StateGraph: state, nodes, routing, builder
-│   │   │   ├── llm_client.py # Provider clients (OpenRouter, Groq, OpenAI, Mock)
-│   │   │   ├── prompts.py    # Generation and repair feedback prompts
-│   │   │   └── sql_generator.py # Generation-only repair loop (demos/eval)
-│   │   ├── api/              # API routing and HTTP endpoints (/health)
-│   │   ├── core/             # Centralized settings (Pydantic) and logging
-│   │   ├── db/               # PostgreSQL (SQLAlchemy 2.x async) & Redis clients
-│   │   ├── models/           # SQLAlchemy 2.x declarative models
-│   │   │   ├── base.py       # DeclarativeBase base class
-│   │   │   ├── business.py   # business.* schema models (5 tables)
-│   │   │   ├── application.py# app.* schema models (5 tables)
-│   │   │   └── semantic.py   # semantic.* schema models (3 tables)
-│   │   ├── repositories/     # Future: Data access layer
-│   │   ├── schemas/          # Pydantic request and response schemas
-│   │   ├── security/         # Future: SQL AST validation and guardrails
-│   │   ├── semantic/         # Semantic Layer (YAML definitions, models, loader, validator)
-│   │   ├── services/         # Future: Business and orchestration services
-│   │   └── main.py           # Application entrypoint & lifespan lifecycle
-│   ├── tests/                # Automated pytest suite (database, health, semantic layer)
-│   ├── alembic.ini           # Backend Alembic configuration
-│   ├── Dockerfile            # Production-ready non-root Dockerfile
-│   ├── pyproject.toml        # Ruff, mypy, and pytest configuration
-│   └── requirements.txt      # Python dependencies
-├── docs/
-│   ├── database.md           # Full database schema and table documentation
-│   ├── erd.mmd               # Mermaid ER diagram
-│   ├── semantic-layer.md     # Semantic Layer documentation and query mapping guide
-│   ├── semantic-retrieval.md # Semantic Retrieval architecture, ranking, and join resolution
-│   ├── sql-guardrails.md     # SQL Guardrails, AST validation, read-only policies, and limit injection
-│   └── langgraph-orchestration.md # LangGraph state machine, routing, and repair semantics
-
-├── frontend/                 # Minimal Next.js 15 client placeholder
-│   └── streamlit/            # Streamlit demo UI (see frontend/streamlit/README.md) ├── data/
-│   ├── raw/                  # Target for future Olist CSV files (.gitkeep)
-│   └── processed/            # Target for future processed data (.gitkeep)
-├── scripts/                  # Utility and operations scripts
-├── eval/                     # Evaluation benchmarks and test cases
-├── alembic.ini               # Root Alembic configuration
-├── docker-compose.yml        # Multi-service infrastructure orchestration
-├── .env.example              # Baseline environment configuration template
-├── .gitignore                # Git ignore rules
-└── LICENSE                   # MIT License
+│   │   ├── agents/               # LLM clients, prompts, SQL generator
+│   │   │   └── graph/            # LangGraph: state, nodes, routing, builder, checkpointer
+│   │   ├── api/routes/           # /health, /health/ready, /analyze, /analyze/stream
+│   │   ├── core/                 # Pydantic settings, logging, rate limiting
+│   │   ├── db/                   # SQLAlchemy 2.x async (PostgreSQL) & Redis clients
+│   │   ├── models/               # business.* / app.* / semantic.* declarative models
+│   │   ├── repositories/         # Defensive SQL execution (timeout, row caps)
+│   │   ├── schemas/              # Pydantic request/response schemas
+│   │   ├── security/             # sqlglot guardrail validator + intent checks
+│   │   ├── semantic/             # YAML catalog, loader, validator, hybrid retrieval
+│   │   ├── services/             # Analyze service, caches, SSE formatting
+│   │   └── main.py               # Entrypoint & lifespan
+│   ├── tests/                    # pytest suite (13 modules: DB, graph, guardrails, caches…)
+│   ├── Dockerfile                # Non-root production image
+│   └── pyproject.toml            # Ruff + mypy + pytest configuration
+├── frontend/
+│   ├── app/                      # Next.js 15 health/status dashboard
+│   └── streamlit/                # Full conversational demo UI (chat + SSE + charts)
+├── data/
+│   ├── raw/                      # Olist CSVs (gitignored — download manually)
+│   └── processed/
+├── docs/                         # Architecture & subsystem documentation
+├── eval/                         # Benchmark cases, golden results, run_eval.py
+├── reports/                      # Eval & data-quality report outputs
+├── scripts/                      # Ingestion, validation, profiling, demos
+├── tests/                        # Root-level tests (eval, data, streamlit demo, SSE client)
+├── alembic.ini
+├── docker-compose.yml            # postgres + redis + backend + frontend
+├── .env.example
+└── LICENSE                       # MIT
 ```
 
 ---
 
-## Next Steps (Planned Phases)
+## Configuration
 
-1. **Manual Olist Dataset Placement**:
-   Place the 5 required CSV files into `data/raw/`:
-   * `olist_customers_dataset.csv`
-   * `olist_orders_dataset.csv`
-   * `olist_order_items_dataset.csv`
-   * `olist_products_dataset.csv`
-   * `olist_order_payments_dataset.csv`
+All settings are environment-driven (see `.env.example`). Key groups:
 
-2. **Ingestion Pipeline**:
-   Implement data validation, foreign key ordering, and ingestion into the `business` schema.
-
-3. **Semantic Layer & Agent**:
-   Populate semantic definitions, configure retrieval, and implement Text-to-SQL generation with AST validation.
-4. **Conversational Extensions (next PRs)**:
-   ~~SSE streaming of graph node transitions~~ (done: `POST /analyze/stream`), ~~checkpointer-backed multi-turn conversations~~ (done: `CHECKPOINTER_BACKEND`, `conversation_id` in/out), follow-ups: clarification interrupts, conversation persistence into `app.conversations` / `app.messages`, and visualization/summarization nodes.
+| Group | Variables |
+|---|---|
+| LLM | `LLM_PROVIDER` (`openrouter`/`groq`/`openai`/`mock`), `LLM_MODEL`, `LLM_TEMPERATURE`, `OPENROUTER_API_KEY`, `GROQ_API_KEY`, `OPENAI_API_KEY` |
+| Embeddings | `RETRIEVAL_ENABLE_EMBEDDINGS` (default `false`), `EMBEDDING_BASE_URL/API_KEY/MODEL`, `RETRIEVAL_KEYWORD_WEIGHT` / `RETRIEVAL_EMBEDDING_WEIGHT` (0.6/0.4) |
+| SQL policy | `SQL_MAX_LIMIT=1000`, `SQL_DEFAULT_LIMIT=100`, `SQL_EXECUTION_TIMEOUT=10`, `SQL_MAX_ROWS=5000`, `SQL_MAX_REPAIR_ATTEMPTS=3`, `SQL_MAX_EXECUTION_REPAIR_ATTEMPTS=2`, `SQL_ENFORCE_INTENT_CHECKS` |
+| Graph | `CHECKPOINTER_BACKEND` (`memory`/`redis`), `GRAPH_RECURSION_LIMIT`, `SSE_HEARTBEAT_INTERVAL_SECONDS` |
+| Caching | `CACHE_ENABLED`, `PROMPT_CACHE_TTL_SECONDS`, `RESULT_CACHE_TTL_SECONDS`, `SEMANTIC_CACHE_*` |
+| Rate limiting | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_RPM=30`, `RATE_LIMIT_BURST=10` |
+| Infrastructure | `POSTGRES_*`, `REDIS_*`, `FRONTEND_URL`, `NEXT_PUBLIC_BACKEND_URL`, `STREAMLIT_BACKEND_URL` |
 
 ---
 
-## Code Quality & Verification
+## Testing & Code Quality
 
 ```bash
-cd backend
+# Full test suite (backend + root-level tests)
+pytest -v                       # from repo root (pytest.ini covers backend/tests and tests/)
 
-# Run tests
-pytest -v
+# Backend only
+cd backend && pytest -v
 
-# Code formatting & linting
+# Lint & format
 ruff check .
 
 # Static type checking
 mypy app tests
+```
 
-# Evaluation regressions (deterministic layers; full usage: eval/README.md)
-# From repository root:
+CI-safe eval regression (no LLM/DB required):
+
+```bash
 pytest tests/eval -q
 python eval/run_eval.py --layers retrieval guardrail
 ```
+
+---
+
+## License
+
+[MIT](LICENSE)
