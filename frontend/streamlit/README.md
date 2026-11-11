@@ -26,6 +26,9 @@ execution, repair) is duplicated here.
   when the result has a suitable dimension + metric column.
 - **Execution details**: execution status, duration, rows returned/total,
   repair attempts, model, retrieval status/confidence, row limit, error codes.
+- **Redis cache indicator**: every answer reports whether SQL/results were
+  served from the Redis cache (`⚡ HIT`) or produced by a fresh run (`MISS`),
+  both in the success banner and the Execution details metrics.
 - **Error handling** for backend outages, API errors, SQL execution failures,
   invalid payloads, and unexpected exceptions — user-friendly messages with
   details in the logs.

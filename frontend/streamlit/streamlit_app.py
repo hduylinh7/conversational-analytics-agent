@@ -59,7 +59,7 @@ SQL_LANGUAGE = "sql"
 # Bumped whenever the demo UI changes shape; rendered in the sidebar so a
 # stale Streamlit process (import caches survive only until restart) is
 # obvious at a glance.
-UI_VERSION = "v2.0-realtime"
+UI_VERSION = "v2.1-cache-indicator"
 
 # Map LangGraph node names (from SSE ``node`` events) to demo-friendly labels.
 NODE_LABELS = {
@@ -191,7 +191,10 @@ def render_success_banner(payload: dict) -> None:
     text = "✅ Query executed successfully"
     if payload.get("model_used"):
         text += f" — model: `{payload['model_used']}`"
+    if applogic.cache_is_hit(payload):
+        text += " — ⚡ served from Redis cache"
     st.success(text)
+    st.caption(f"Cache: {applogic.cache_label(payload)}")
     if payload.get("conversation_id"):
         st.caption(
             f"Conversation id `{payload['conversation_id']}` — follow-up questions can reference this result."
@@ -348,7 +351,7 @@ def render_execution_details(payload: dict) -> None:
     with st.expander("🔬 Execution details", icon="🔬"):
         execution = payload.get("execution") or None
 
-        metric_row_1 = st.columns(4)
+        metric_row_1 = st.columns(5)
         metric_row_1[0].metric(
             "Execution status",
             execution.get("status") if execution else "not reached",
@@ -362,6 +365,7 @@ def render_execution_details(payload: dict) -> None:
             applogic.format_duration(execution.get("execution_ms") or 0.0) if execution else "—",
         )
         metric_row_1[3].metric("Repair attempts", payload.get("repair_attempts", 0))
+        metric_row_1[4].metric("Cache", applogic.cache_label(payload))
 
         metric_row_2 = st.columns(4)
         metric_row_2[0].metric("Model", payload.get("model_used") or "—")

@@ -289,3 +289,28 @@ def rows_caption(execution: Mapping[str, Any]) -> str:
     if total and row_count < total:
         return f"{row_count} of {total} rows shown (row limit applied)"
     return f"{row_count} row(s) returned"
+
+
+# ---------------------------------------------------------------------------
+# Cache indicator
+# ---------------------------------------------------------------------------
+
+
+def cache_label(response: Mapping[str, Any]) -> str:
+    """Human-readable Redis cache indicator for the response ``cache_hit`` flag.
+
+    ``cache_hit=True``  -> SQL or the execution result was served from Redis.
+    ``cache_hit=False`` -> the run was fresh (new LLM call / PostgreSQL query).
+    Missing flag (older backends) -> not reported.
+    """
+    cache_hit = response.get("cache_hit")
+    if cache_hit is True:
+        return "⚡ HIT — served from Redis cache"
+    if cache_hit is False:
+        return "MISS — fresh pipeline run"
+    return "— (not reported)"
+
+
+def cache_is_hit(response: Mapping[str, Any]) -> bool:
+    """True when the response was served (fully or partially) from Redis."""
+    return response.get("cache_hit") is True
