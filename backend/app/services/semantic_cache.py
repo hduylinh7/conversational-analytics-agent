@@ -241,16 +241,18 @@ def create_semantic_cache() -> SemanticCacheService | None:
     settings = get_settings()
     if not settings.SEMANTIC_CACHE_ENABLED:
         return None
+    api_key = settings.EMBEDDING_API_KEY or settings.OPENAI_API_KEY
     provider: BaseEmbeddingProvider
-    if settings.OPENAI_API_KEY:
+    if api_key:
         provider = OpenAIEmbeddingProvider(
-            api_key=settings.OPENAI_API_KEY,
+            api_key=api_key,
             model=settings.EMBEDDING_MODEL,
+            base_url=settings.EMBEDDING_BASE_URL,
         )
     else:
         logger.warning(
-            "SEMANTIC_CACHE_ENABLED without OPENAI_API_KEY: degrading to lexical-hash "
-            "embeddings (only repeated identical wordings hit; paraphrases miss)."
+            "SEMANTIC_CACHE_ENABLED without EMBEDDING_API_KEY/OPENAI_API_KEY: degrading "
+            "to lexical-hash embeddings (only repeated identical wordings hit)."
         )
         provider = MockEmbeddingProvider()
     return SemanticCacheService(get_redis_client(), provider)

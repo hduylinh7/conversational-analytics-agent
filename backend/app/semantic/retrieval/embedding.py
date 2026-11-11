@@ -98,31 +98,33 @@ class MockEmbeddingProvider(BaseEmbeddingProvider):
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
-    """OpenAI embedding provider using httpx to call the REST API."""
+    """Embedding provider for OpenAI-compatible REST APIs (OpenAI, Gemini, ...)."""
 
     def __init__(
         self,
         api_key: str,
         model: str = "text-embedding-3-small",
         timeout: float = 10.0,
+        base_url: str = "https://api.openai.com/v1",
     ) -> None:
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
+        self.base_url = base_url.rstrip("/")
 
     def embed_text(self, text: str) -> list[float]:
         batch = self.embed_batch([text])
         if not batch:
-            raise EmbeddingError("Empty embedding returned from OpenAI API.")
+            raise EmbeddingError("Empty embedding returned from embedding API.")
         return batch[0]
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         import httpx
 
         if not self.api_key:
-            raise EmbeddingError("OpenAI API key is missing or empty.")
+            raise EmbeddingError("Embedding API key is missing or empty.")
 
-        url = "https://api.openai.com/v1/embeddings"
+        url = f"{self.base_url}/embeddings"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -137,11 +139,13 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
-                data_items = sorted(data["data"], key=lambda x: x["index"])
+                data_items = sorted(
+                    data["data"], key=lambda x: x.get("index", 0) if isinstance(x, dict) else 0
+                )
                 return [item["embedding"] for item in data_items]
         except Exception as exc:
-            logger.warning("OpenAI embedding API call failed: %s", exc)
-            raise EmbeddingError(f"OpenAI embedding API call failed: {exc}") from exc
+            logger.warning("Embedding API call failed (%s): %s", url, exc)
+            raise EmbeddingError(f"Embedding API call failed: {exc}") from exc
 
 
 class EmbeddingEngine:

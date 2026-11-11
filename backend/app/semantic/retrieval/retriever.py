@@ -57,10 +57,12 @@ class SemanticRetriever:
 
         # Setup embedding provider
         prov = embedding_provider
-        if prov is None and self.config.enable_embeddings and settings.OPENAI_API_KEY:
+        embedding_api_key = settings.EMBEDDING_API_KEY or settings.OPENAI_API_KEY
+        if prov is None and self.config.enable_embeddings and embedding_api_key:
             prov = OpenAIEmbeddingProvider(
-                api_key=settings.OPENAI_API_KEY,
+                api_key=embedding_api_key,
                 model=self.config.embedding_model,
+                base_url=settings.EMBEDDING_BASE_URL,
             )
 
         self.embedding_engine = EmbeddingEngine(

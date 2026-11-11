@@ -71,6 +71,17 @@ class Settings(BaseSettings):
         default=None,
         description="API key for optional external embedding provider.",
     )
+    # Embedding provider for retrieval similarity and the semantic cache.
+    # Any OpenAI-compatible endpoint works (OpenAI, Google Gemini via
+    # https://generativelanguage.googleapis.com/v1beta/openai, ...).
+    EMBEDDING_API_KEY: str | None = Field(
+        default=None,
+        description="Embedding API key; falls back to OPENAI_API_KEY when unset.",
+    )
+    EMBEDDING_BASE_URL: str = Field(
+        default="https://api.openai.com/v1",
+        description="Base URL of the OpenAI-compatible embeddings endpoint.",
+    )
     EMBEDDING_MODEL: str = Field(
         default="text-embedding-3-small",
         description="Embedding model name.",
