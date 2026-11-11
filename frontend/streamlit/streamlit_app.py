@@ -150,9 +150,10 @@ def render_sidebar() -> AnalyticsClient:
             placeholder="e.g. google/gemini-2.5-flash",
             help="Leave empty to use the backend default model.",
         )
+        # ``use_stream`` is seeded by init_session_state; passing ``value=`` here
+        # as well makes Streamlit warn about duplicate defaults on every run.
         st.toggle(
             "Realtime workflow progress (SSE)",
-            value=True,
             key="use_stream",
             help=(
                 "Watch each workflow node complete live via POST /analyze/stream. "
