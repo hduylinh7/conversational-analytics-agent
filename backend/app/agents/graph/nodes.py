@@ -207,9 +207,6 @@ class AnalyticsNodes:
             "execution_repairs": 0,
             "last_failure": None,
             "model_used": state.get("model") or self.default_model,
-            # Semantic cache only replays fresh-turn questions: follow-ups such as
-            # "and by month?" depend on checkpointed history, not question text.
-            "is_first_turn": not prior_messages,
         }
         if failure is None:
             request = SQLGenerationRequest(
@@ -257,10 +254,12 @@ class AnalyticsNodes:
                     "cache_hit": True,
                 }
 
-        # Question-similarity cache for fresh-turn questions (multi-turn
-        # follow-ups are excluded: they depend on conversation history).
+        # Question-similarity cache: replays validated SQL when this turn's
+        # question closely matches a previously answered question (multi-turn
+        # follow-ups included — replayed SQL is re-validated by guardrails
+        # against the current retrieval contract before execution).
         semantic_vector: list[float] | None = None
-        if self.semantic_cache is not None and state.get("is_first_turn"):
+        if self.semantic_cache is not None:
             question = state.get("question", "")
             semantic_vector = await self.semantic_cache.embed(question)
             if semantic_vector:

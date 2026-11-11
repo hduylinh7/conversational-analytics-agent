@@ -1,10 +1,12 @@
 """SemanticCacheService: question-embedding similarity cache over Redis.
 
 Purpose: users rarely repeat a question verbatim ("revenue by category" vs
-"revenue per category"), so exact-key caching misses. This service embeds
-first-turn questions and matches them against cached entries; when a cached
+"revenue per category"), so exact-key caching misses. This service embeds the
+question of every turn and matches it against cached entries; when a cached
 question is sufficiently similar (raw cosine >= threshold), its validated SQL
-is replayed instead of an LLM call.
+is replayed instead of an LLM call. Replayed SQL is re-validated by the
+guardrails against the current retrieval contract before execution, so a stale
+match degrades into the normal repair path rather than a wrong answer.
 
 Storage (plain Redis, no modules required):
 
@@ -223,22 +225,34 @@ class SemanticCacheService:
 
 
 def create_semantic_cache() -> SemanticCacheService | None:
-    """Build the production semantic cache, or ``None`` when unavailable.
+    """Build the production semantic cache, or ``None`` when disabled.
 
-    Mirrors the retriever's embedding selection: the cache requires a real
-    embedding provider (OpenAI). Without an API key it stays disabled and the
-    pipeline keeps exact-match caching only.
+    Mirrors the retriever's embedding selection: with ``OPENAI_API_KEY`` set the
+    cache uses real embeddings (paraphrases match). Without a key it degrades to
+    the deterministic lexical-hashing ``MockEmbeddingProvider`` — only repeated
+    identical wordings match — logging once so the degraded mode is visible.
     """
     from app.db.redis import get_redis_client
-    from app.semantic.retrieval.embedding import OpenAIEmbeddingProvider
+    from app.semantic.retrieval.embedding import (
+        MockEmbeddingProvider,
+        OpenAIEmbeddingProvider,
+    )
 
     settings = get_settings()
-    if not settings.SEMANTIC_CACHE_ENABLED or not settings.OPENAI_API_KEY:
+    if not settings.SEMANTIC_CACHE_ENABLED:
         return None
-    provider = OpenAIEmbeddingProvider(
-        api_key=settings.OPENAI_API_KEY,
-        model=settings.EMBEDDING_MODEL,
-    )
+    provider: BaseEmbeddingProvider
+    if settings.OPENAI_API_KEY:
+        provider = OpenAIEmbeddingProvider(
+            api_key=settings.OPENAI_API_KEY,
+            model=settings.EMBEDDING_MODEL,
+        )
+    else:
+        logger.warning(
+            "SEMANTIC_CACHE_ENABLED without OPENAI_API_KEY: degrading to lexical-hash "
+            "embeddings (only repeated identical wordings hit; paraphrases miss)."
+        )
+        provider = MockEmbeddingProvider()
     return SemanticCacheService(get_redis_client(), provider)
 
 

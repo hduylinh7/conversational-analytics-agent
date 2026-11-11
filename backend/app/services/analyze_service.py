@@ -132,7 +132,6 @@ class AnalyzeService:
             "failure_reason": None,
             "prompt_cache_key": "",
             "cache_hit": False,
-            "is_first_turn": True,
             "semantic_cache_vector": [],
         }
 
